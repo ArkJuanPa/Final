@@ -7,8 +7,9 @@
     <link rel="stylesheet" href="src/styles/main.css">
     
     <!-- Cargar Ice.js -->
-    <script src="path/to/Ice.js"></script>
-    <script src="path/to/Demo.js"></script>
+    <script src="./node_modules/ice/lib/Ice.js"></script>
+    <script src="Player.js"></script>
+
 </head>
 <body>
 <div id="app">
@@ -252,9 +253,11 @@
 </div>
 
 <!-- Scripts -->
+ 
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="src/js/api.js"></script>
-<script src="src/services/delegate.js"></script>
+<script src="src/services/subscriber.js"></script>
+<script src="src/services/IceDelegate.js"></script>
 <script src="src/js/audio-manager.js"></script>
 <script src="src/js/ui.js"></script>
 <script src="src/js/app.js"></script>

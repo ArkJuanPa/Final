@@ -1,51 +1,67 @@
-// ===================== app.js (Adaptado para ICE) =====================
+// ===================== app.js =====================
 const AppController = {
   recordingStartTime: null,
   recordingInterval: null,
   callDurationInterval: null,
+  iceReady: false,
 
   async init() {
-    console.log("Initializing chat application...");
+    console.log("🚀 Initializing chat application...");
+
+    // Esperar a que window.IceDelegate esté disponible
+    await this.waitForIceDelegate();
 
     window.UI.init();
 
-    // Verificar si usar ICE o HTTP
-    const useICE = true; // Cambiar según necesites
+    // Conectar callbacks de ICE con AudioManager
+    this.connectICEtoAudioManager();
 
-    if (useICE) {
-      console.log("Modo ICE activado");
-      this.setupICECallbacks();
-    } else {
-      try {
-        await window.API.healthCheck();
-        console.log("Connected to proxy server");
-      } catch (error) {
-        console.error("Cannot connect to proxy server:", error);
-        alert("No se puede conectar al servidor.");
-        return;
-      }
-    }
-
+    // Setup listeners
     this.setupLoginListeners();
     this.setupChatListeners();
     this.setupModalListeners();
     this.setupAudioListeners();
+    this.setupICECallbacks();
+
+    console.log("✅ Application initialized");
+  },
+
+  async waitForIceDelegate() {
+    // Esperar hasta que IceDelegate esté disponible
+    let attempts = 0;
+    while (!window.IceDelegate && attempts < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
+    }
+    
+    if (!window.IceDelegate) {
+      console.error("❌ IceDelegate no se pudo cargar");
+      alert("Error: No se pudo cargar el sistema de llamadas ICE");
+    } else {
+      console.log("✅ IceDelegate cargado correctamente");
+      this.iceReady = true;
+    }
+  },
+
+  connectICEtoAudioManager() {
+    if (window.IceDelegate && window.AudioManager) {
+      window.IceDelegate.subscribe((bytes) => {
+        window.AudioManager.playAudio(bytes);
+      });
+      console.log("✅ ICE conectado con AudioManager");
+    }
   },
 
   setupICECallbacks() {
-    // Configurar callbacks de ICE
-    window.IceDelegate.onIncomingCall = (fromUser) => {
+    if (!window.IceDelegate) {
+      console.error("❌ IceDelegate no disponible para callbacks");
+      return;
+    }
+
+    // Llamada entrante
+    window.IceDelegate.onIncomingCall((fromUser) => {
       console.log("📞 Llamada entrante de:", fromUser);
       
-      if (window.UI.callListener) {
-        window.UI.callListener({
-          type: "incoming",
-          callerId: fromUser,
-          callerName: fromUser,
-          callId: `call_${Date.now()}`
-        });
-      }
-
       if (window.AudioManager) {
         window.AudioManager.currentCall = {
           id: `call_${Date.now()}`,
@@ -57,9 +73,10 @@ const AppController = {
       }
 
       window.UI.showIncomingCallModal(fromUser);
-    };
+    });
 
-    window.IceDelegate.onCallAccepted = async (byUser) => {
+    // Llamada aceptada
+    window.IceDelegate.onCallAccepted(async (byUser) => {
       console.log("✅ Llamada aceptada por:", byUser);
       
       if (window.AudioManager) {
@@ -75,9 +92,10 @@ const AppController = {
 
       window.UI.showActiveCallModal(byUser);
       this.startCallDurationTimer();
-    };
+    });
 
-    window.IceDelegate.onCallRejected = (byUser) => {
+    // Llamada rechazada
+    window.IceDelegate.onCallRejected((byUser) => {
       console.log("❌ Llamada rechazada por:", byUser);
       
       if (window.AudioManager) {
@@ -87,9 +105,12 @@ const AppController = {
 
       window.UI.hideActiveCallModal();
       window.UI.hideIncomingCallModal();
-    };
+      
+      alert(`${byUser} rechazó la llamada`);
+    });
 
-    window.IceDelegate.onCallEnded = (byUser) => {
+    // Llamada colgada
+    window.IceDelegate.onCallEnded((byUser) => {
       console.log("📴 Llamada colgada por:", byUser);
       
       if (window.AudioManager) {
@@ -101,13 +122,9 @@ const AppController = {
       window.UI.hideActiveCallModal();
       
       alert(`La llamada fue terminada por ${byUser}`);
-    };
+    });
 
-    window.IceDelegate.onAudioReceived = (bytes) => {
-      if (window.AudioManager) {
-        window.AudioManager.playAudio(bytes);
-      }
-    };
+    console.log("✅ ICE callbacks configurados");
   },
 
   setupLoginListeners() {
@@ -141,14 +158,10 @@ const AppController = {
     if (createGroupBtn) {
       createGroupBtn.addEventListener("click", () => window.UI.showModal());
     }
-
-    const viewHistoryBtn = document.getElementById("view-history-btn");
-    if (viewHistoryBtn) {
-      viewHistoryBtn.addEventListener("click", () => this.handleViewHistory());
-    }
   },
 
   setupAudioListeners() {
+    // Grabar mensaje de audio
     if (window.UI.sendAudioBtn) {
       let isRecording = false;
 
@@ -177,14 +190,16 @@ const AppController = {
         window.AudioManager.stopRecording();
         window.UI.hideRecordingIndicator();
 
-        // Obtener el audio grabado
         const audioData = await window.AudioManager.handleRecordingStop();
         
-        // Enviar mensaje de audio por ICE
         const chat = window.UI.getCurrentChat();
         if (chat.type === "user" && audioData.pcm16) {
-          await window.IceDelegate.sendAudioMessage(chat.id, audioData.pcm16);
-          console.log("Mensaje de audio enviado");
+          const success = await window.IceDelegate.sendAudioMessage(chat.id, audioData.pcm16);
+          if (success) {
+            console.log("✅ Mensaje de audio enviado");
+          } else {
+            console.error("❌ Error enviando mensaje de audio");
+          }
         }
       });
 
@@ -198,6 +213,7 @@ const AppController = {
       });
     }
 
+    // Botones de llamada
     if (window.UI.callBtn) {
       window.UI.callBtn.addEventListener("click", () => this.handleInitiateCall());
     }
@@ -239,13 +255,13 @@ const AppController = {
         return;
       }
 
-      const call = await window.AudioManager.initiateCall(chat.id, user.username);
+      const call = await window.AudioManager.initiateCall(user.username, user.username);
       
       if (call) {
-        await window.AudioManager.startLiveRecording();
         window.UI.showActiveCallModal(user.username);
-        this.startCallDurationTimer();
-        console.log("Llamada iniciada con:", user.username);
+        console.log("✅ Llamada iniciada con:", user.username);
+      } else {
+        alert("No se pudo iniciar la llamada");
       }
     } catch (error) {
       console.error("Error al iniciar llamada:", error);
@@ -261,7 +277,7 @@ const AppController = {
     }
     
     window.UI.hideIncomingCallModal();
-    console.log("Llamada rechazada");
+    console.log("❌ Llamada rechazada");
   },
 
   async handleAnswerCall() {
@@ -279,7 +295,9 @@ const AppController = {
         window.UI.hideIncomingCallModal();
         window.UI.showActiveCallModal(window.AudioManager.currentCall.callerName);
         this.startCallDurationTimer();
-        console.log("Llamada respondida");
+        console.log("✅ Llamada respondida");
+      } else {
+        alert("No se pudo responder la llamada");
       }
     } catch (error) {
       console.error("Error al responder llamada:", error);
@@ -291,12 +309,12 @@ const AppController = {
     clearInterval(this.callDurationInterval);
     await window.AudioManager.endCall();
     window.UI.hideActiveCallModal();
-    console.log("Llamada terminada");
+    console.log("📴 Llamada terminada");
   },
 
   handleToggleMute() {
-    if (window.UI.muteBtn && window.AudioManager.stream) {
-      const audioTracks = window.AudioManager.stream.getAudioTracks();
+    if (window.UI.muteBtn && window.AudioManager.mediaStream) {
+      const audioTracks = window.AudioManager.mediaStream.getAudioTracks();
       const isMuted = audioTracks[0]?.enabled === false;
 
       audioTracks.forEach((track) => {
@@ -304,7 +322,7 @@ const AppController = {
       });
 
       window.UI.muteBtn.style.opacity = isMuted ? "1" : "0.5";
-      console.log(isMuted ? "Micrófono activado" : "Micrófono silenciado");
+      console.log(isMuted ? "🔊 Micrófono activado" : "🔇 Micrófono silenciado");
     }
   },
 
@@ -338,27 +356,34 @@ const AppController = {
       return;
     }
 
+    if (!this.iceReady) {
+      window.UI.showError(window.UI.loginError, "Sistema ICE no está listo. Recarga la página.");
+      return;
+    }
+
     try {
       window.UI.loginBtn.disabled = true;
       window.UI.loginBtn.textContent = "Conectando...";
 
-      // Conectar a ICE
+      // Conectar a ICE primero
       const connected = await window.IceDelegate.init(username);
       
-      if (connected) {
-        console.log("Conectado al servidor ICE como:", username);
-        
-        // También conectar al servidor HTTP si es necesario
-        const result = await window.API.login(username);
-        
-        if (result.success) {
-          await this.onLoginSuccess();
-        }
-      } else {
+      if (!connected) {
         throw new Error("No se pudo conectar al servidor ICE");
       }
+
+      console.log("✅ Conectado al servidor ICE como:", username);
+      
+      // Luego conectar al servidor HTTP
+      const result = await window.API.login(username);
+      
+      if (result.success) {
+        await this.onLoginSuccess();
+      } else {
+        throw new Error(result.error || "Error al iniciar sesión");
+      }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("❌ Login error:", error);
       window.UI.showError(window.UI.loginError, error.message || "Error al iniciar sesión");
     } finally {
       window.UI.loginBtn.disabled = false;
@@ -374,6 +399,11 @@ const AppController = {
       return;
     }
 
+    if (!this.iceReady) {
+      window.UI.showError(window.UI.loginError, "Sistema ICE no está listo. Recarga la página.");
+      return;
+    }
+
     try {
       window.UI.registerBtn.disabled = true;
       window.UI.registerBtn.textContent = "Registrando...";
@@ -381,18 +411,20 @@ const AppController = {
       // Conectar a ICE primero
       const connected = await window.IceDelegate.init(username);
       
-      if (connected) {
-        const result = await window.API.register(username);
-
-        if (result.success) {
-          console.log("Registration successful:", result.user.username);
-          await this.onLoginSuccess();
-        }
-      } else {
+      if (!connected) {
         throw new Error("No se pudo conectar al servidor ICE");
       }
+      
+      const result = await window.API.register(username);
+
+      if (result.success) {
+        console.log("✅ Registration successful:", result.user.username);
+        await this.onLoginSuccess();
+      } else {
+        throw new Error(result.error || "Error al registrarse");
+      }
     } catch (error) {
-      console.error("Registration error:", error);
+      console.error("❌ Registration error:", error);
       window.UI.showError(window.UI.loginError, error.message || "Error al registrarse");
     } finally {
       window.UI.registerBtn.disabled = false;
@@ -412,7 +444,7 @@ const AppController = {
   async handleLogout() {
     try {
       await window.API.logout();
-      console.log("Logged out successfully");
+      console.log("✅ Logged out successfully");
       window.UI.showLoginScreen();
     } catch (error) {
       console.error("Logout error:", error);
@@ -422,19 +454,12 @@ const AppController = {
 
   async loadUsers() {
     try {
-      // Cargar usuarios de ICE
-      const iceUsers = await window.IceDelegate.getUsers();
-      
-      // Cargar usuarios del servidor HTTP
       const result = await window.API.getUsers();
 
       if (result.success) {
         const currentUser = window.API.getCurrentUser();
-        console.log("Users from server:", result.users);
-        console.log("Users from ICE:", iceUsers);
-        
         window.UI.renderUsers(result.users, currentUser.id);
-        console.log("allUsers guardado con", window.UI.allUsers.length, "usuarios");
+        console.log("✅ Usuarios cargados:", window.UI.allUsers.length);
       }
     } catch (error) {
       console.error("Error loading users:", error);
@@ -447,7 +472,7 @@ const AppController = {
 
       if (result.success) {
         window.UI.renderGroups(result.groups);
-        console.log("Groups loaded:", result.groups.length);
+        console.log("✅ Grupos cargados:", result.groups.length);
       }
     } catch (error) {
       console.error("Error loading groups:", error);
@@ -469,7 +494,7 @@ const AppController = {
       const result = await window.API.createGroup(groupName);
 
       if (result.success) {
-        console.log("Group created:", result.group.name);
+        console.log("✅ Group created:", result.group.name);
         window.UI.closeModal();
         await this.loadGroups();
       }
@@ -571,45 +596,15 @@ const AppController = {
     } catch (error) {
       console.error("Error loading messages:", error);
     }
-  },
-
-  async handleViewHistory() {
-    const chat = window.UI.getCurrentChat();
-
-    if (!chat.type || !chat.id) {
-      alert("Por favor selecciona un usuario o grupo primero");
-      return;
-    }
-
-    try {
-      let result;
-      let chatName = "";
-
-      if (chat.type === "user") {
-        result = await window.API.getHistory(chat.id);
-        const user = window.UI.allUsers.find((u) => u.id === chat.id);
-        chatName = user ? user.username : "Usuario";
-      } else {
-        result = await window.API.getGroupMessages(chat.id);
-        chatName = window.UI.currentGroup?.groupName || window.UI.currentGroup?.name || "Grupo";
-      }
-
-      if (result.success) {
-        const currentUser = window.API.getCurrentUser();
-        window.UI.showHistoryModal(chat.type, chatName);
-        window.UI.renderHistoryMessages(result.messages, currentUser.id, chat.type);
-      }
-    } catch (error) {
-      console.error("Error loading history:", error);
-      alert("Error al cargar el historial: " + error.message);
-    }
   }
 };
 
+// Inicializar cuando el DOM esté listo
 document.addEventListener("DOMContentLoaded", () => {
   AppController.init();
 });
 
+// Event delegation para clicks en usuarios y grupos
 document.addEventListener("click", async (e) => {
   const userItem = e.target.closest("#users-list .list-item");
   const groupItem = e.target.closest("#groups-list .list-item");

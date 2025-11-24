@@ -8,6 +8,8 @@
     "dev": "webpack serve"
   },
   "dependencies": {
+    "ice": "^3.7.100",
+    "serve": "^14.2.5",
     "axios": "^1.7.9",
     "path": "0.12.7",
     "url": "0.11.4",

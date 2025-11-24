@@ -1,27 +1,42 @@
-// ===================== audio-manager.js (Adaptado) =====================
+// ===================== audio-manager.js (Actualizado) =====================
 class AudioManager {
   constructor() {
-    this.mediaRecorder = null;
-    this.audioChunks = [];
-    this.stream = null;
-    this.isRecording = false;
-    this.currentCall = null;
+    // Audio context
     this.audioContext = null;
+    this.mediaStream = null;
     this.processor = null;
+    
+    // Buffers
     this.sendBuffer = [];
     this.bufferQueue = [];
-    this.isPlaying = false;
-    this.callListener = null;
     
-    // Configuración del procesador de audio
+    // Estado
+    this.isRecording = false;
+    this.isPlaying = false;
+    this.currentCall = null;
+    
+    // Configuración
     this.SAMPLE_RATE = 44100;
     this.BUFFER_SIZE = 2048;
-    this.SEND_THRESHOLD = 8;
+    this.SEND_THRESHOLD = 8; // Enviar cada 8 chunks
+    
+    // Para mensajes de audio
+    this.audioMsgStream = null;
+    this.audioMsgProcessor = null;
+    this.audioMsgBuffer = [];
   }
 
   async initAudio() {
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
+      if (!this.audioContext) {
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+          sampleRate: this.SAMPLE_RATE
+        });
+      }
+
+      await this.audioContext.resume();
+
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
@@ -30,11 +45,7 @@ class AudioManager {
         }
       });
       
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
-        sampleRate: this.SAMPLE_RATE
-      });
-      
-      console.log("[AudioManager] Audio inicializado");
+      console.log("[AudioManager] Audio inicializado correctamente");
       return true;
     } catch (error) {
       console.error("[AudioManager] Error al acceder al micrófono:", error);
@@ -43,14 +54,18 @@ class AudioManager {
     }
   }
 
-  startLiveRecording() {
-    if (!this.stream || !this.audioContext) {
+  // ================== Grabación en vivo (llamadas) ==================
+  async startLiveRecording() {
+    if (!this.mediaStream || !this.audioContext) {
       console.error("[AudioManager] No hay stream de audio disponible");
-      return false;
+      const hasPermission = await this.initAudio();
+      if (!hasPermission) return false;
     }
 
     try {
-      const audioInput = this.audioContext.createMediaStreamSource(this.stream);
+      await this.audioContext.resume();
+
+      const audioInput = this.audioContext.createMediaStreamSource(this.mediaStream);
       const gainNode = this.audioContext.createGain();
       gainNode.gain.value = 0.5;
 
@@ -64,8 +79,10 @@ class AudioManager {
       gainNode.connect(this.processor);
       this.processor.connect(this.audioContext.destination);
 
+      this.sendBuffer = [];
+
       this.processor.onaudioprocess = (e) => {
-        if (!this.currentCall) return;
+        if (!this.currentCall || !window.IceDelegate) return;
 
         const input = e.inputBuffer.getChannelData(0);
         const boosted = this.applySoftCompression(input);
@@ -77,9 +94,7 @@ class AudioManager {
           this.sendBuffer = [];
           
           // Enviar audio por ICE
-          if (window.IceDelegate) {
-            window.IceDelegate.sendAudio(new Uint8Array(merged.buffer));
-          }
+          window.IceDelegate.sendAudio(new Uint8Array(merged.buffer));
         }
       };
 
@@ -95,24 +110,22 @@ class AudioManager {
   stopLiveRecording() {
     try {
       // Enviar buffer restante
-      if (this.sendBuffer.length > 0 && this.currentCall) {
+      if (this.sendBuffer.length > 0 && this.currentCall && window.IceDelegate) {
         const merged = this.mergePCM(this.sendBuffer);
-        if (window.IceDelegate) {
-          window.IceDelegate.sendAudio(new Uint8Array(merged.buffer));
-        }
+        window.IceDelegate.sendAudio(new Uint8Array(merged.buffer));
         this.sendBuffer = [];
       }
 
       if (this.processor) {
         this.processor.disconnect();
         this.processor.onaudioprocess = null;
+        this.processor = null;
       }
-      this.processor = null;
 
-      if (this.stream) {
-        this.stream.getTracks().forEach(t => t.stop());
+      if (this.mediaStream) {
+        this.mediaStream.getTracks().forEach(t => t.stop());
+        this.mediaStream = null;
       }
-      this.stream = null;
 
       this.isRecording = false;
       console.log("[AudioManager] Grabación en vivo detenida");
@@ -123,78 +136,79 @@ class AudioManager {
     }
   }
 
-  // Grabación de mensajes de audio
-  startRecording() {
-    if (!this.stream) {
-      console.error("[AudioManager] No hay stream de audio disponible");
-      return false;
+  // ================== Grabación de mensajes de audio ==================
+  async startRecording() {
+    if (!this.audioContext) {
+      const hasPermission = await this.initAudio();
+      if (!hasPermission) return false;
     }
 
     try {
-      this.audioChunks = [];
-      this.mediaRecorder = new MediaRecorder(this.stream);
+      await this.audioContext.resume();
 
-      this.mediaRecorder.ondataavailable = (event) => {
-        this.audioChunks.push(event.data);
+      this.audioMsgStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioInput = this.audioContext.createMediaStreamSource(this.audioMsgStream);
+
+      this.audioMsgProcessor = this.audioContext.createScriptProcessor(2048, 1, 1);
+      audioInput.connect(this.audioMsgProcessor);
+      this.audioMsgProcessor.connect(this.audioContext.destination);
+
+      this.audioMsgBuffer = [];
+
+      this.audioMsgProcessor.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        const pcm16 = this.floatToPCM16(input);
+        this.audioMsgBuffer.push(pcm16);
       };
 
-      this.mediaRecorder.onstop = () => {
-        this.handleRecordingStop();
-      };
-
-      this.mediaRecorder.start();
       this.isRecording = true;
       console.log("[AudioManager] Grabación de mensaje iniciada");
       return true;
     } catch (error) {
-      console.error("[AudioManager] Error al iniciar grabación:", error);
+      console.error("[AudioManager] Error al iniciar grabación de mensaje:", error);
       return false;
     }
   }
 
   stopRecording() {
-    if (!this.mediaRecorder || !this.isRecording) return false;
-
     try {
-      this.mediaRecorder.stop();
+      if (this.audioMsgProcessor) {
+        this.audioMsgProcessor.disconnect();
+        this.audioMsgProcessor.onaudioprocess = null;
+        this.audioMsgProcessor = null;
+      }
+
+      if (this.audioMsgStream) {
+        this.audioMsgStream.getTracks().forEach(t => t.stop());
+        this.audioMsgStream = null;
+      }
+
       this.isRecording = false;
       console.log("[AudioManager] Grabación de mensaje detenida");
       return true;
     } catch (error) {
-      console.error("[AudioManager] Error al detener grabación:", error);
+      console.error("[AudioManager] Error al detener grabación de mensaje:", error);
       return false;
     }
   }
 
   async handleRecordingStop() {
-    const audioBlob = new Blob(this.audioChunks, { type: "audio/webm" });
-    this.audioChunks = [];
+    const merged = this.mergePCM(this.audioMsgBuffer);
+    const uint8 = new Uint8Array(merged.buffer);
+    this.audioMsgBuffer = [];
 
-    // Convertir a PCM16 para enviar por ICE
-    const arrayBuffer = await audioBlob.arrayBuffer();
-    const audioContext = new AudioContext();
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    
-    const pcm16 = this.floatToPCM16(audioBuffer.getChannelData(0));
-    const uint8 = new Uint8Array(pcm16.buffer);
-
-    // Guardar localmente para reproducir
-    const audioUrl = URL.createObjectURL(audioBlob);
-    
     return {
-      url: audioUrl,
-      blob: audioBlob,
       pcm16: uint8,
       timestamp: new Date().toISOString()
     };
   }
 
+  // ================== Llamadas ==================
   async initiateCall(recipientId, recipientName) {
     try {
       const hasPermission = await this.initAudio();
-      if (!hasPermission) return false;
+      if (!hasPermission) return null;
 
-      // Iniciar llamada por ICE
       const success = await window.IceDelegate.startCall(recipientId);
       
       if (success) {
@@ -226,6 +240,7 @@ class AudioManager {
       
       if (success) {
         await this.startLiveRecording();
+        console.log("[AudioManager] Llamada respondida");
         return true;
       }
       
@@ -246,6 +261,7 @@ class AudioManager {
         this.currentCall = null;
       }
       
+      console.log("[AudioManager] Llamada rechazada");
       return true;
     } catch (error) {
       console.error("[AudioManager] Error al rechazar llamada:", error);
@@ -260,7 +276,10 @@ class AudioManager {
 
       // Colgar por ICE
       if (window.IceDelegate) {
-        await window.IceDelegate.colgar(this.currentCall.recipientId);
+        const target = this.currentCall.recipientId || this.currentCall.callerId;
+        if (target) {
+          await window.IceDelegate.colgar(target);
+        }
       }
 
       console.log("[AudioManager] Llamada finalizada. Duración:", duration, "segundos");
@@ -272,7 +291,7 @@ class AudioManager {
     this.isPlaying = false;
   }
 
-  // Procesamiento de audio
+  // ================== Procesamiento de audio ==================
   applySoftCompression(buffer) {
     const threshold = 0.65;
     const ratio = 4.0;
@@ -322,6 +341,7 @@ class AudioManager {
     return floatBuffer;
   }
 
+  // ================== Reproducción de audio ==================
   playAudio(byteArray) {
     if (!byteArray || !this.audioContext) return;
     
@@ -351,23 +371,16 @@ class AudioManager {
     source.start();
     source.onended = () => this.processQueue();
   }
-
-  stopAudio(audio) {
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
-  }
 }
 
 // Instancia global
 if (typeof window !== "undefined") {
   window.AudioManager = new AudioManager();
   
-  // Conectar callbacks de ICE
+  // Conectar con IceDelegate cuando esté disponible
   if (window.IceDelegate) {
-    window.IceDelegate.onAudioReceived = (bytes) => {
+    window.IceDelegate.subscribe((bytes) => {
       window.AudioManager.playAudio(bytes);
-    };
+    });
   }
 }
