@@ -1,0 +1,15 @@
+<state>
+  <timestamp value='1764014573108' />
+  <sourceSet name='default'>
+    <source name='C:\Users\PC\Documents\Universidad\llamadaYAudio\audio_rep\Player.ice'>
+      <file name='C:\Users\PC\Documents\Universidad\llamadaYAudio\audio_rep\audio-call\build\generated-src\Demo\Observer.java' />
+      <file name='C:\Users\PC\Documents\Universidad\llamadaYAudio\audio_rep\audio-call\build\generated-src\Demo\Subject.java' />
+      <file name='C:\Users\PC\Documents\Universidad\llamadaYAudio\audio_rep\audio-call\build\generated-src\Demo\ObserverPrx.java' />
+      <file name='C:\Users\PC\Documents\Universidad\llamadaYAudio\audio_rep\audio-call\build\generated-src\Demo\_ObserverPrxI.java' />
+      <file name='C:\Users\PC\Documents\Universidad\llamadaYAudio\audio_rep\audio-call\build\generated-src\Demo\SubjectPrx.java' />
+      <file name='C:\Users\PC\Documents\Universidad\llamadaYAudio\audio_rep\audio-call\build\generated-src\Demo\_SubjectPrxI.java' />
+    </source>
+    <arg value='C:\Program Files\ZeroC\Ice-3.7.10\\bin\slice2java.exe' />
+    <arg value='-IC:\Program Files\ZeroC\Ice-3.7.10\\slice' />
+  </sourceSet>
+</state>

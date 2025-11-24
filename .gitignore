@@ -1,0 +1,40 @@
+# ======================
+# Node / NPM
+# ======================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.env
+.env.local
+
+# ======================
+# Builds
+# ======================
+dist/
+build/
+out/
+
+# ======================
+# Sistema operativo
+# ======================
+.DS_Store
+Thumbs.db
+
+# ======================
+# IDEs
+# ======================
+.vscode/
+.idea/
+
+# ======================
+# Gradle
+# ======================
+.gradle/
+build/
+
+# ======================
+# Otros
+# ======================
+*.log
