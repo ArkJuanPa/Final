@@ -1,42 +1,61 @@
+// ===================== Subscriber.js =====================
 
 export default class Subscriber extends Demo.Observer {
-  constructor(delegate) {
-    super();
-    this.delegate = delegate;
-  }
+    constructor(delegate) {
+        super();
+        this.delegate = delegate;
+    }
 
-  receiveAudio(bytes) {
-    console.log("[WEB] Audio recibido:", bytes.length);
-    const raw = Uint8Array.from(bytes);
-    this.delegate.notify(raw);
-  }
+    // =================== AUDIO ===================
+    receiveAudio(bytes) {
+        console.log("[WEB] Audio recibido:", bytes.length);
+        this.delegate.notify(Uint8Array.from(bytes));
+    }
 
-  receiveAudioMessage(bytes) {
-    console.log("[WEB] Mensaje de audio:", bytes.length);
-    const raw = Uint8Array.from(bytes);
-    this.delegate.notify(raw);
-  }
+    receiveAudioMessage(bytes) {
+        console.log("[WEB] Mensaje de audio recibido:", bytes.length);
+        this.delegate.notify(Uint8Array.from(bytes));
+    }
 
-  incomingCall(fromUser) {
-    console.log("📞 incomingCall recibido:", fromUser);
-    if (this.delegate.incomingCallCB) this.delegate.incomingCallCB(fromUser);
-  }
+    receiveAudioMessageGroup(groupId, bytes) {
+        console.log(`[WEB] Audio de mensaje grupal recibido en ${groupId} (${bytes.length})`);
+        this.delegate.notifyGroupMessage(groupId, Uint8Array.from(bytes));
+    }
 
-  callAccepted(byUser) {
-    console.log("✅ Llamada aceptada por:", byUser);
-    if (this.delegate.callAcceptedCB) this.delegate.callAcceptedCB(byUser);
-  }
+    // =================== LLAMADAS 1 a 1 ===================
+    incomingCall(fromUser) {
+        console.log("📞 incomingCall:", fromUser);
+        this.delegate.notifyIncomingCall(fromUser);
+    }
 
-  callRejected(byUser) {
-    console.log("❌ Llamada rechazada por:", byUser);
-    if (this.delegate.callRejectedCB) this.delegate.callRejectedCB(byUser);
-  }
+    callAccepted(fromUser) {
+        console.log("✅ callAccepted:", fromUser);
+        this.delegate.notifyCallAccepted(fromUser);
+    }
 
-  // ----------------- Llamada colgada -----------------
-  callColgada(byUser) {
-    console.log("📴 Llamada colgada por:", byUser);
+    callRejected(fromUser) {
+        console.log("❌ callRejected:", fromUser);
+        this.delegate.notifyCallRejected(fromUser);
+    }
 
-    // Notifica al IceDelegate para manejar el flujo
-    this.delegate.notifyCallColgada(byUser);
-  }
+    callColgada(fromUser) {
+        console.log("📴 callColgada:", fromUser);
+        this.delegate.notifyCallColgada(fromUser);
+    }
+
+    // =================== LLAMADAS GRUPALES ===================
+    incomingGroupCall(groupId, fromUser, members) {
+        console.log(`📢 incomingGroupCall (${groupId}) de ${fromUser}`);
+        this.delegate.notifyIncomingGroupCall(groupId, fromUser, members);
+    }
+
+    groupCallUpdated(groupId, members) {
+        console.log(`🔄 groupCallUpdated (${groupId})`);
+        this.delegate.notifyGroupCallUpdated(groupId, members);
+    }
+
+    groupCallEnded(groupId) {
+        console.log(`🛑 groupCallEnded (${groupId})`);
+        this.delegate.notifyGroupCallEnded(groupId);
+    }
 }

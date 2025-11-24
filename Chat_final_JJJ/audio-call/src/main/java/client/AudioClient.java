@@ -13,7 +13,7 @@ public class AudioClient {
     public static void main(String[] args) throws java.lang.Exception {
         AudioFormat format = new AudioFormat(44100, 16, 1, true, true);
 
-        // Inicializamos el reproductor
+        // Inicializamos el reproductor (debes tener PlayerThread implementado)
         PlayerThread playerThread = new PlayerThread(format);
         ObserverI.player = playerThread;
         playerThread.setPlay(true);
@@ -31,15 +31,30 @@ public class AudioClient {
         adapter.activate();
 
         ObjectPrx serviceBase = communicator.stringToProxy("AudioService:ws -h localhost -p 9099");
-        subject = SubjectPrx.checkedCast(serviceBase); // <-- corregido para asignar la variable estática
+        subject = SubjectPrx.checkedCast(serviceBase);
+
+        if (subject == null) {
+            System.err.println("[CLIENT] No se pudo obtener SubjectPrx. Revisar conexión.");
+            communicator.destroy();
+            return;
+        }
 
         userId = JOptionPane.showInputDialog("User ID:");
-        String target = JOptionPane.showInputDialog("¿A quién quieres llamar?");
-        subject.startCall(userId, target);
+        if (userId == null || userId.trim().isEmpty()) {
+            System.err.println("[CLIENT] User ID inválido.");
+            communicator.destroy();
+            return;
+        }
 
+        // adjuntamos el callback ANTES de iniciar llamadas para que el servidor pueda notificarnos
         subject.attach(userId, observerPrx);
 
-        // Inicializamos el sender
+        String target = JOptionPane.showInputDialog("¿A quién quieres llamar? (dejar vacío si solo quieres escuchar)");
+        if (target != null && !target.trim().isEmpty()) {
+            subject.startCall(userId, target);
+        }
+
+        // Inicializamos el sender (debes tener la clase Sender implementada)
         Sender sender = new Sender(userId, subject);
         sender.start();
 

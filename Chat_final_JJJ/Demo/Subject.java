@@ -33,6 +33,14 @@ public interface Subject extends com.zeroc.Ice.Object
 
     void colgar(String fromUser, String toUser, com.zeroc.Ice.Current current);
 
+    String createGroupCall(String fromUser, String[] users, com.zeroc.Ice.Current current);
+
+    void joinGroupCall(String groupId, String user, com.zeroc.Ice.Current current);
+
+    void leaveGroupCall(String groupId, String user, com.zeroc.Ice.Current current);
+
+    void sendAudioGroup(String groupId, String fromUser, byte[] data, com.zeroc.Ice.Current current);
+
     /** @hidden */
     static final String[] _iceIds =
     {
@@ -217,19 +225,108 @@ public interface Subject extends com.zeroc.Ice.Object
         return inS.setResult(inS.writeEmptyParams());
     }
 
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_createGroupCall(Subject obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_fromUser;
+        String[] iceP_users;
+        iceP_fromUser = istr.readString();
+        iceP_users = istr.readStringSeq();
+        inS.endReadParams();
+        String ret = obj.createGroupCall(iceP_fromUser, iceP_users, current);
+        com.zeroc.Ice.OutputStream ostr = inS.startWriteParams();
+        ostr.writeString(ret);
+        inS.endWriteParams(ostr);
+        return inS.setResult(ostr);
+    }
+
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_joinGroupCall(Subject obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_groupId;
+        String iceP_user;
+        iceP_groupId = istr.readString();
+        iceP_user = istr.readString();
+        inS.endReadParams();
+        obj.joinGroupCall(iceP_groupId, iceP_user, current);
+        return inS.setResult(inS.writeEmptyParams());
+    }
+
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_leaveGroupCall(Subject obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_groupId;
+        String iceP_user;
+        iceP_groupId = istr.readString();
+        iceP_user = istr.readString();
+        inS.endReadParams();
+        obj.leaveGroupCall(iceP_groupId, iceP_user, current);
+        return inS.setResult(inS.writeEmptyParams());
+    }
+
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_sendAudioGroup(Subject obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_groupId;
+        String iceP_fromUser;
+        byte[] iceP_data;
+        iceP_groupId = istr.readString();
+        iceP_fromUser = istr.readString();
+        iceP_data = istr.readByteSeq();
+        inS.endReadParams();
+        obj.sendAudioGroup(iceP_groupId, iceP_fromUser, iceP_data, current);
+        return inS.setResult(inS.writeEmptyParams());
+    }
+
     /** @hidden */
     final static String[] _iceOps =
     {
         "acceptCall",
         "attach",
         "colgar",
+        "createGroupCall",
         "getConnectedUsers",
         "ice_id",
         "ice_ids",
         "ice_isA",
         "ice_ping",
+        "joinGroupCall",
+        "leaveGroupCall",
         "rejectCall",
         "sendAudio",
+        "sendAudioGroup",
         "sendAudioMessage",
         "startCall"
     };
@@ -261,37 +358,53 @@ public interface Subject extends com.zeroc.Ice.Object
             }
             case 3:
             {
-                return _iceD_getConnectedUsers(this, in, current);
+                return _iceD_createGroupCall(this, in, current);
             }
             case 4:
             {
-                return com.zeroc.Ice.Object._iceD_ice_id(this, in, current);
+                return _iceD_getConnectedUsers(this, in, current);
             }
             case 5:
             {
-                return com.zeroc.Ice.Object._iceD_ice_ids(this, in, current);
+                return com.zeroc.Ice.Object._iceD_ice_id(this, in, current);
             }
             case 6:
             {
-                return com.zeroc.Ice.Object._iceD_ice_isA(this, in, current);
+                return com.zeroc.Ice.Object._iceD_ice_ids(this, in, current);
             }
             case 7:
             {
-                return com.zeroc.Ice.Object._iceD_ice_ping(this, in, current);
+                return com.zeroc.Ice.Object._iceD_ice_isA(this, in, current);
             }
             case 8:
             {
-                return _iceD_rejectCall(this, in, current);
+                return com.zeroc.Ice.Object._iceD_ice_ping(this, in, current);
             }
             case 9:
             {
-                return _iceD_sendAudio(this, in, current);
+                return _iceD_joinGroupCall(this, in, current);
             }
             case 10:
             {
-                return _iceD_sendAudioMessage(this, in, current);
+                return _iceD_leaveGroupCall(this, in, current);
             }
             case 11:
+            {
+                return _iceD_rejectCall(this, in, current);
+            }
+            case 12:
+            {
+                return _iceD_sendAudio(this, in, current);
+            }
+            case 13:
+            {
+                return _iceD_sendAudioGroup(this, in, current);
+            }
+            case 14:
+            {
+                return _iceD_sendAudioMessage(this, in, current);
+            }
+            case 15:
             {
                 return _iceD_startCall(this, in, current);
             }

@@ -48,7 +48,10 @@
         "incomingCall": [, , , , , [[7]], , , , ],
         "callAccepted": [, , , , , [[7]], , , , ],
         "callRejected": [, , , , , [[7]], , , , ],
-        "callColgada": [, , , , , [[7]], , , , ]
+        "callColgada": [, , , , , [[7]], , , , ],
+        "incomingGroupCall": [, , , , , [[7], [7], ["Demo.stringSeqHelper"]], , , , ],
+        "groupCallUpdated": [, , , , , [[7], ["Demo.stringSeqHelper"]], , , , ],
+        "groupCallEnded": [, , , , , [[7]], , , , ]
     });
 
     const iceC_Demo_Subject_ids = [
@@ -73,7 +76,11 @@
         "startCall": [, , , , , [[7], [7]], , , , ],
         "acceptCall": [, , , , , [[7], [7]], , , , ],
         "rejectCall": [, , , , , [[7], [7]], , , , ],
-        "colgar": [, , , , , [[7], [7]], , , , ]
+        "colgar": [, , , , , [[7], [7]], , , , ],
+        "createGroupCall": [, , , , [7], [[7], ["Demo.stringSeqHelper"]], , , , ],
+        "joinGroupCall": [, , , , , [[7], [7]], , , , ],
+        "leaveGroupCall": [, , , , , [[7], [7]], , , , ],
+        "sendAudioGroup": [, , , , , [[7], [7], ["Demo.BytesHelper"]], , , , ]
     });
     exports.Demo = Demo;
 }

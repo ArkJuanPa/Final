@@ -322,6 +322,164 @@ public interface SubjectPrx extends com.zeroc.Ice.ObjectPrx
         return f;
     }
 
+    default String createGroupCall(String fromUser, String[] users)
+    {
+        return createGroupCall(fromUser, users, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default String createGroupCall(String fromUser, String[] users, java.util.Map<String, String> context)
+    {
+        return _iceI_createGroupCallAsync(fromUser, users, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<java.lang.String> createGroupCallAsync(String fromUser, String[] users)
+    {
+        return _iceI_createGroupCallAsync(fromUser, users, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<java.lang.String> createGroupCallAsync(String fromUser, String[] users, java.util.Map<String, String> context)
+    {
+        return _iceI_createGroupCallAsync(fromUser, users, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_fromUser -
+     * @param iceP_users -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<java.lang.String> _iceI_createGroupCallAsync(String iceP_fromUser, String[] iceP_users, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<java.lang.String> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "createGroupCall", null, sync, null);
+        f.invoke(true, context, null, ostr -> {
+                     ostr.writeString(iceP_fromUser);
+                     ostr.writeStringSeq(iceP_users);
+                 }, istr -> {
+                     String ret;
+                     ret = istr.readString();
+                     return ret;
+                 });
+        return f;
+    }
+
+    default void joinGroupCall(String groupId, String user)
+    {
+        joinGroupCall(groupId, user, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default void joinGroupCall(String groupId, String user, java.util.Map<String, String> context)
+    {
+        _iceI_joinGroupCallAsync(groupId, user, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> joinGroupCallAsync(String groupId, String user)
+    {
+        return _iceI_joinGroupCallAsync(groupId, user, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> joinGroupCallAsync(String groupId, String user, java.util.Map<String, String> context)
+    {
+        return _iceI_joinGroupCallAsync(groupId, user, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_groupId -
+     * @param iceP_user -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<Void> _iceI_joinGroupCallAsync(String iceP_groupId, String iceP_user, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<Void> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "joinGroupCall", null, sync, null);
+        f.invoke(false, context, null, ostr -> {
+                     ostr.writeString(iceP_groupId);
+                     ostr.writeString(iceP_user);
+                 }, null);
+        return f;
+    }
+
+    default void leaveGroupCall(String groupId, String user)
+    {
+        leaveGroupCall(groupId, user, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default void leaveGroupCall(String groupId, String user, java.util.Map<String, String> context)
+    {
+        _iceI_leaveGroupCallAsync(groupId, user, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> leaveGroupCallAsync(String groupId, String user)
+    {
+        return _iceI_leaveGroupCallAsync(groupId, user, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> leaveGroupCallAsync(String groupId, String user, java.util.Map<String, String> context)
+    {
+        return _iceI_leaveGroupCallAsync(groupId, user, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_groupId -
+     * @param iceP_user -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<Void> _iceI_leaveGroupCallAsync(String iceP_groupId, String iceP_user, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<Void> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "leaveGroupCall", null, sync, null);
+        f.invoke(false, context, null, ostr -> {
+                     ostr.writeString(iceP_groupId);
+                     ostr.writeString(iceP_user);
+                 }, null);
+        return f;
+    }
+
+    default void sendAudioGroup(String groupId, String fromUser, byte[] data)
+    {
+        sendAudioGroup(groupId, fromUser, data, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default void sendAudioGroup(String groupId, String fromUser, byte[] data, java.util.Map<String, String> context)
+    {
+        _iceI_sendAudioGroupAsync(groupId, fromUser, data, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> sendAudioGroupAsync(String groupId, String fromUser, byte[] data)
+    {
+        return _iceI_sendAudioGroupAsync(groupId, fromUser, data, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> sendAudioGroupAsync(String groupId, String fromUser, byte[] data, java.util.Map<String, String> context)
+    {
+        return _iceI_sendAudioGroupAsync(groupId, fromUser, data, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_groupId -
+     * @param iceP_fromUser -
+     * @param iceP_data -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<Void> _iceI_sendAudioGroupAsync(String iceP_groupId, String iceP_fromUser, byte[] iceP_data, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<Void> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "sendAudioGroup", null, sync, null);
+        f.invoke(false, context, null, ostr -> {
+                     ostr.writeString(iceP_groupId);
+                     ostr.writeString(iceP_fromUser);
+                     ostr.writeByteSeq(iceP_data);
+                 }, null);
+        return f;
+    }
+
     /**
      * Contacts the remote server to verify that the object implements this type.
      * Raises a local exception if a communication error occurs.
