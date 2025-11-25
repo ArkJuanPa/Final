@@ -32,18 +32,18 @@ public class SubjectImpl implements Subject {
             ObserverPrx proxy = obs.ice_fixed(c.con);
             observers.put(userId, proxy);
             lastSeen.put(userId, System.currentTimeMillis());
-            System.out.println("[SERVER] ✅ Usuario conectado: " + userId);
+            System.out.println("[SERVER] Usuario conectado: " + userId);
 
             if (c.con != null) {
                 c.con.setCloseCallback(con -> handleDisconnection(userId));
             }
         } catch (Exception e) {
-            System.err.println("[SERVER] ❌ Error en attach: " + e);
+            System.err.println("[SERVER] Error en attach: " + e);
         }
     }
 
     private void handleDisconnection(String userId) {
-        System.out.println("[SERVER] 🔌 Desconexión: " + userId);
+        System.out.println("[SERVER] Desconexion: " + userId);
         observers.remove(userId);
         lastSeen.remove(userId);
         
@@ -56,92 +56,87 @@ public class SubjectImpl implements Subject {
         removeFromAllGroups(userId);
     }
 
-    // =================== AUDIO 1-a-1 (CORREGIDO) ===================
     @Override
     public void sendAudio(String fromUser, byte[] data, Current c) {
         if (fromUser == null || data == null || data.length == 0) return;
 
-        // Actualizar actividad
         lastSeen.put(fromUser, System.currentTimeMillis());
         
         String target = activeCalls.get(fromUser);
         if (target == null) {
-            System.err.println("[SERVER] ⚠️ " + fromUser + " no tiene llamada activa");
+            System.err.println("[SERVER] " + fromUser + " no tiene llamada activa");
             return;
         }
 
         ObserverPrx prx = observers.get(target);
         if (prx == null) {
-            System.err.println("[SERVER] ⚠️ Receptor desconectado: " + target);
+            System.err.println("[SERVER] Receptor desconectado: " + target);
             activeCalls.remove(fromUser);
             activeCalls.remove(target);
             return;
         }
 
         try {
-            // IMPORTANTE: Usar async para evitar bloqueos
             prx.receiveAudioAsync(data).whenComplete((result, ex) -> {
                 if (ex != null) {
-                    System.err.println("[SERVER] ❌ Error enviando audio: " + ex.getMessage());
+                    System.err.println("[SERVER] Error enviando audio: " + ex.getMessage());
                 }
             });
             
             lastSeen.put(target, System.currentTimeMillis());
         } catch (Exception e) {
-            System.err.println("[SERVER] ❌ Error en sendAudio: " + e);
+            System.err.println("[SERVER] Error en sendAudio: " + e);
         }
     }
 
-    // =================== MENSAJE DE AUDIO 1-a-1 (CORREGIDO) ===================
     @Override
     public void sendAudioMessage(String fromUser, String toUser, byte[] data, Current c) {
         if (toUser == null || fromUser == null || data == null || data.length == 0) {
-            System.err.println("[SERVER] ⚠️ sendAudioMessage: parámetros inválidos");
+            System.err.println("[SERVER] sendAudioMessage: parametros invalidos");
             return;
         }
 
         ObserverPrx dest = observers.get(toUser);
         if (dest == null) {
-            System.err.println("[SERVER] ⚠️ " + toUser + " no conectado");
+            System.err.println("[SERVER] " + toUser + " no conectado");
             return;
         }
 
         try {
             dest.receiveAudioMessageAsync(data).whenComplete((result, ex) -> {
                 if (ex != null) {
-                    System.err.println("[SERVER] ❌ Error enviando mensaje de audio: " + ex.getMessage());
+                    System.err.println("[SERVER] Error enviando mensaje de audio: " + ex.getMessage());
                 } else {
-                    System.out.println("[SERVER] ✅ Mensaje de audio enviado: " + fromUser + " → " + toUser + " (" + data.length + " bytes)");
+                    System.out.println("[SERVER] Mensaje de audio enviado: " + fromUser + " -> " + toUser + " (" + data.length + " bytes)");
                 }
             });
         } catch (Exception e) {
-            System.err.println("[SERVER] ❌ Error en sendAudioMessage: " + e);
+            System.err.println("[SERVER] Error en sendAudioMessage: " + e);
         }
     }
 
-    // =================== LLAMADAS 1-a-1 (CORREGIDO) ===================
     @Override
     public void startCall(String fromUser, String toUser, Current c) {
         if (toUser == null || fromUser == null) return;
         
-        System.out.println("[SERVER] 📞 Iniciando llamada: " + fromUser + " → " + toUser);
+        System.out.println("[SERVER] Iniciando llamada: " + fromUser + " -> " + toUser);
 
         ObserverPrx dest = observers.get(toUser);
         if (dest == null) {
-            System.err.println("[SERVER] ⚠️ " + toUser + " no está conectado");
+            System.err.println("[SERVER] " + toUser + " no esta conectado");
             return;
         }
 
         try {
             dest.incomingCallAsync(fromUser).whenComplete((result, ex) -> {
                 if (ex != null) {
-                    System.err.println("[SERVER] ❌ Error notificando llamada: " + ex.getMessage());
+                    System.err.println("[SERVER] Error notificando llamada: " + ex.getMessage());
                 } else {
-                    System.out.println("[SERVER] ✅ Notificación enviada a " + toUser);
+                    System.out.println("[SERVER] Notificacion enviada a " + toUser);
                 }
             });
         } catch (Exception e) {
-            System.err.println("[SERVER] ❌ Error en startCall: " + e);
+            System.err.println("[SERVER] Error en startCall: " + e);
         }
     }
 
@@ -149,33 +144,32 @@ public class SubjectImpl implements Subject {
     public void acceptCall(String fromUser, String toUser, Current c) {
         if (fromUser == null || toUser == null) return;
 
-        System.out.println("[SERVER] ✅ Llamada aceptada: " + fromUser + " ← " + toUser);
+        System.out.println("[SERVER] Llamada aceptada: " + fromUser + " <- " + toUser);
 
         ObserverPrx caller = observers.get(fromUser);
         if (caller == null) {
-            System.err.println("[SERVER] ⚠️ Caller desconectado: " + fromUser);
+            System.err.println("[SERVER] Caller desconectado: " + fromUser);
             return;
         }
 
         try {
             caller.callAcceptedAsync(toUser).whenComplete((result, ex) -> {
                 if (ex == null) {
-                    // Establecer llamada activa DESPUÉS de notificar
                     activeCalls.put(fromUser, toUser);
                     activeCalls.put(toUser, fromUser);
-                    System.out.println("[SERVER] 🎧 Llamada establecida entre " + fromUser + " y " + toUser);
+                    System.out.println("[SERVER] Llamada establecida entre " + fromUser + " y " + toUser);
                 } else {
-                    System.err.println("[SERVER] ❌ Error aceptando llamada: " + ex.getMessage());
+                    System.err.println("[SERVER] Error aceptando llamada: " + ex.getMessage());
                 }
             });
         } catch (Exception e) {
-            System.err.println("[SERVER] ❌ Error en acceptCall: " + e);
+            System.err.println("[SERVER] Error en acceptCall: " + e);
         }
     }
 
     @Override
     public void rejectCall(String fromUser, String toUser, Current c) {
-        System.out.println("[SERVER] ❌ Llamada rechazada: " + fromUser + " ← " + toUser);
+        System.out.println("[SERVER] Llamada rechazada: " + fromUser + " <- " + toUser);
 
         if (fromUser == null || toUser == null) return;
 
@@ -189,13 +183,11 @@ public class SubjectImpl implements Subject {
 
     @Override
     public void colgar(String fromUser, String toUser, Current c) {
-        System.out.println("[SERVER] 📴 Colgando: " + fromUser + " → " + toUser);
+        System.out.println("[SERVER] Colgando: " + fromUser + " -> " + toUser);
 
-        // Limpiar estado primero
         if (fromUser != null) activeCalls.remove(fromUser);
         if (toUser != null) activeCalls.remove(toUser);
 
-        // Notificar a ambos
         try {
             if (toUser != null) {
                 ObserverPrx receiver = observers.get(toUser);
@@ -222,7 +214,6 @@ public class SubjectImpl implements Subject {
         }
     }
 
-    // =================== LLAMADAS GRUPALES (CORREGIDO) ===================
     @Override
     public String createGroupCall(String fromUser, String[] users, Current current) {
         if (fromUser == null || users == null) {
@@ -239,7 +230,6 @@ public class SubjectImpl implements Subject {
 
         groupMembers.put(groupId, members);
 
-        // Notificar con snapshot
         String[] arr = members.toArray(new String[0]);
         for (String member : arr) {
             ObserverPrx prx = observers.get(member);
@@ -247,12 +237,12 @@ public class SubjectImpl implements Subject {
                 try {
                     prx.incomingGroupCallAsync(groupId, fromUser, arr);
                 } catch (Exception ex) {
-                    System.err.println("[SERVER] ❌ Error notificando incomingGroupCall a " + member);
+                    System.err.println("[SERVER] Error notificando incomingGroupCall a " + member);
                 }
             }
         }
 
-        System.out.println("[SERVER] 📢 Grupo creado: " + groupId + " por " + fromUser + " con " + members.size() + " miembros");
+        System.out.println("[SERVER] Grupo creado: " + groupId + " por " + fromUser + " con " + members.size() + " miembros");
         return groupId;
     }
 
@@ -262,13 +252,13 @@ public class SubjectImpl implements Subject {
 
         Set<String> members = groupMembers.get(groupId);
         if (members == null) {
-            System.err.println("[SERVER] ⚠️ Grupo no existe: " + groupId);
+            System.err.println("[SERVER] Grupo no existe: " + groupId);
             return;
         }
 
         members.add(user);
         notifyGroupUpdated(groupId);
-        System.out.println("[SERVER] ✅ " + user + " se unió a " + groupId);
+        System.out.println("[SERVER] " + user + " se unio a " + groupId);
     }
 
     @Override
@@ -282,10 +272,10 @@ public class SubjectImpl implements Subject {
         
         if (members.isEmpty()) {
             groupMembers.remove(groupId);
-            System.out.println("[SERVER] 🗑️ Grupo vacío eliminado: " + groupId);
+            System.out.println("[SERVER] Grupo vacio eliminado: " + groupId);
         } else {
             notifyGroupUpdated(groupId);
-            System.out.println("[SERVER] 👋 " + user + " salió de " + groupId);
+            System.out.println("[SERVER] " + user + " salio de " + groupId);
         }
     }
 
@@ -295,7 +285,7 @@ public class SubjectImpl implements Subject {
 
         Set<String> members = groupMembers.get(groupId);
         if (members == null || members.isEmpty()) {
-            System.err.println("[SERVER] ⚠️ Grupo vacío o inexistente: " + groupId);
+            System.err.println("[SERVER] Grupo vacio o inexistente: " + groupId);
             return;
         }
 
@@ -310,7 +300,7 @@ public class SubjectImpl implements Subject {
                 try {
                     prx.receiveAudioAsync(data);
                 } catch (Exception ex) {
-                    System.err.println("[SERVER] ❌ Error enviando audio grupal a " + member);
+                    System.err.println("[SERVER] Error enviando audio grupal a " + member);
                 }
             }
         }
@@ -322,7 +312,7 @@ public class SubjectImpl implements Subject {
 
         Set<String> members = groupMembers.get(groupId);
         if (members == null || members.isEmpty()) {
-            System.err.println("[SERVER] ⚠️ Grupo vacío: " + groupId);
+            System.err.println("[SERVER] Grupo vacio: " + groupId);
             return;
         }
 
@@ -335,13 +325,13 @@ public class SubjectImpl implements Subject {
                 try {
                     prx.receiveAudioMessageGroupAsync(groupId, data);
                 } catch (Exception ex) {
-                    System.err.println("[SERVER] ❌ Error enviando mensaje de audio grupal a " + member);
+                    System.err.println("[SERVER] Error enviando mensaje de audio grupal a " + member);
                 }
             }
         }
 
         lastSeen.put(fromUser, System.currentTimeMillis());
-        System.out.println("[SERVER] ✅ Mensaje de audio grupal enviado: " + fromUser + " → " + groupId);
+        System.out.println("[SERVER] Mensaje de audio grupal enviado: " + fromUser + " -> " + groupId);
     }
 
     private void notifyGroupUpdated(String groupId) {

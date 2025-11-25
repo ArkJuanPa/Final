@@ -20,7 +20,7 @@ public class Sender extends Thread {
         mic.open(format);
         mic.start();
         
-        System.out.println("[SENDER] ✅ Micrófono inicializado correctamente");
+        System.out.println("[SENDER]  Microfono inicializado correctamente");
     }
 
     @Override
@@ -28,7 +28,7 @@ public class Sender extends Thread {
         byte[] buffer = new byte[10240];
         int consecutiveErrors = 0;
         
-        System.out.println("[SENDER] 🎤 Thread de envío de audio iniciado");
+        System.out.println("[SENDER] Thread de envio de audio iniciado");
         
         while (running) {
             try {
@@ -44,7 +44,7 @@ public class Sender extends Thread {
                             subject.sendAudioAsync(userId, copy)
                                 .whenComplete((result, ex) -> {
                                     if (ex != null) {
-                                        System.err.println("[SENDER] ⚠️ Error enviando audio: " + ex.getMessage());
+                                        System.err.println("[SENDER]  Error enviando audio: " + ex.getMessage());
                                     }
                                 });
                             
@@ -53,11 +53,11 @@ public class Sender extends Thread {
                             
                         } catch (Exception e) {
                             consecutiveErrors++;
-                            System.err.println("[SENDER] ❌ Error enviando audio (" + consecutiveErrors + "): " + e.getMessage());
+                            System.err.println("[SENDER] Error enviando audio (" + consecutiveErrors + "): " + e.getMessage());
                             
                             // Si hay muchos errores consecutivos, pausar un momento
                             if (consecutiveErrors > 10) {
-                                System.err.println("[SENDER] ⚠️ Demasiados errores, pausando 1 segundo...");
+                                System.err.println("[SENDER]  Demasiados errores, pausando 1 segundo...");
                                 Thread.sleep(1000);
                                 consecutiveErrors = 0;
                             }
@@ -70,11 +70,11 @@ public class Sender extends Thread {
                 }
                 
             } catch (InterruptedException e) {
-                System.out.println("[SENDER] 🛑 Thread interrumpido");
+                System.out.println("[SENDER] Thread interrumpido");
                 running = false;
                 break;
             } catch (Exception e) {
-                System.err.println("[SENDER] ❌ Error inesperado en el loop: " + e.getMessage());
+                System.err.println("[SENDER] Error inesperado en el loop: " + e.getMessage());
                 e.printStackTrace();
                 
                 try {
@@ -87,7 +87,7 @@ public class Sender extends Thread {
         }
         
         cleanup();
-        System.out.println("[SENDER] 🛑 Thread de envío finalizado");
+        System.out.println("[SENDER] Thread de envío finalizado");
     }
 
     private void cleanup() {
@@ -95,15 +95,15 @@ public class Sender extends Thread {
             if (mic != null && mic.isOpen()) {
                 mic.stop();
                 mic.close();
-                System.out.println("[SENDER] 🎤 Micrófono cerrado");
+                System.out.println("[SENDER] Microfono cerrado");
             }
         } catch (Exception e) {
-            System.err.println("[SENDER] ⚠️ Error cerrando micrófono: " + e.getMessage());
+            System.err.println("[SENDER] Error cerrando microfono: " + e.getMessage());
         }
     }
 
     public void shutdown() {
-        System.out.println("[SENDER] 🛑 Solicitando cierre del sender...");
+        System.out.println("[SENDER]  Solicitando cierre del sender...");
         running = false;
         this.interrupt();
     }
