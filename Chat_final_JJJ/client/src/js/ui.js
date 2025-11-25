@@ -1,4 +1,4 @@
-// ===================== ui.js (COMPLETO Y CORREGIDO) =====================
+// ===================== ui.js (COMPLETO Y CORREGIDO - PARTE 1) =====================
 
 const UI = {
   // Screen elements
@@ -434,6 +434,50 @@ const UI = {
     this.messagesContainer.appendChild(messageDiv);
   },
 
+  // NUEVO: Agregar mensaje de audio en tiempo real
+  appendAudioMessage(message, currentUserId) {
+    const isSent = message.senderId === currentUserId;
+    const messageDiv = document.createElement("div");
+    messageDiv.className = `message ${isSent ? "sent" : "received"}`;
+
+    const time = new Date(message.timestamp).toLocaleTimeString("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    let senderHtml = "";
+    if (!isSent && this.currentChatType === "group") {
+      senderHtml = `<div class="message-sender">${message.senderUsername || "Usuario"}</div>`;
+    }
+
+    const contentHtml = `
+      <div class="audio-message">
+        <div class="audio-play-btn playing">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+          </svg>
+        </div>
+        <span class="audio-duration">${message.duration || "0:00"}s</span>
+        <span class="audio-status">Mensaje de audio ${isSent ? 'enviado' : 'recibido'}</span>
+      </div>
+    `;
+
+    const bubbleDiv = document.createElement("div");
+    bubbleDiv.className = "message-bubble";
+
+    const content = document.createElement("div");
+    content.innerHTML = `
+      ${senderHtml}
+      ${contentHtml}
+      <div class="message-time">${time}</div>
+    `;
+
+    bubbleDiv.appendChild(content);
+    messageDiv.appendChild(bubbleDiv);
+    this.messagesContainer.appendChild(messageDiv);
+    this.scrollToBottom();
+  },
+
   playAudioMessage(audioUrl, button) {
     const audio = new Audio(audioUrl);
     audio.play();
@@ -554,9 +598,9 @@ const UI = {
       type: this.currentChatType,
       id: this.currentChatId,
     };
-  },
+  },// ===================== ui.js (PARTE 2/2 - FUNCIONES DE GRABACIÓN Y LLAMADAS) =====================
 
-  // ========== NUEVAS FUNCIONES DE GRABACIÓN ==========
+  // ========== FUNCIONES DE GRABACIÓN ==========
 
   showRecordingModal(isGroup) {
     if (this.recordingModal) {

@@ -1,4 +1,4 @@
-// ===================== audio-manager.js (MEJORADO) =====================
+// ===================== audio-manager.js (COMPLETO Y CORREGIDO) =====================
 class AudioManager {
   constructor() {
     this.audioContext = null;
@@ -64,7 +64,6 @@ class AudioManager {
     try {
       await this.audioContext.resume();
 
-      // Obtener stream separado para mensajes
       this.messageStream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -318,25 +317,20 @@ class AudioManager {
       const hasPermission = await this.initAudio();
       if (!hasPermission) return null;
 
-      const success = await window.IceDelegate.createGroupCall(members);
+      const iceGroupId = await window.IceDelegate.createGroupCall(members);
       
-      if (success) {
+      if (iceGroupId) {
         this.currentCall = {
           id: `group_call_${Date.now()}`,
-          groupId,
+          groupId: iceGroupId,
           members,
           startTime: Date.now(),
           isGroup: true
         };
 
-        // Suscribirse al audio del grupo
-        window.IceDelegate.subscribeGroup(groupId, (bytes) => {
-          this.playAudio(bytes);
-        });
-
         await this.startLiveRecording();
 
-        console.log("[AudioManager] Llamada grupal iniciada:", groupId);
+        console.log("[AudioManager] Llamada grupal iniciada:", iceGroupId);
         return this.currentCall;
       }
       
@@ -354,11 +348,6 @@ class AudioManager {
 
       await window.IceDelegate.joinGroupCall(groupId);
       
-      // Suscribirse al audio del grupo
-      window.IceDelegate.subscribeGroup(groupId, (bytes) => {
-        this.playAudio(bytes);
-      });
-
       await this.startLiveRecording();
       
       console.log("[AudioManager] Llamada grupal respondida:", groupId);
@@ -395,10 +384,8 @@ class AudioManager {
 
       if (window.IceDelegate) {
         if (this.currentCall.isGroup) {
-          // Salir de llamada grupal
           await window.IceDelegate.leaveGroupCall(this.currentCall.groupId);
         } else {
-          // Colgar llamada individual
           const target = this.currentCall.recipientId || this.currentCall.callerId;
           if (target) {
             await window.IceDelegate.colgar(target);

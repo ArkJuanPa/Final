@@ -1,4 +1,4 @@
-// ===================== app.js (MEJORADO) =====================
+// ===================== app.js (COMPLETO Y CORREGIDO) =====================
 const AppController = {
   recordingStartTime: null,
   recordingInterval: null,
@@ -201,7 +201,7 @@ const AppController = {
   },
 
   setupAudioListeners() {
-    // ============ NUEVO: Botón para grabar mensaje de audio ============
+    // Botón para grabar mensaje de audio
     if (window.UI.sendAudioBtn) {
       window.UI.sendAudioBtn.addEventListener("click", async () => {
         if (this.isRecordingAudioMessage) return;
@@ -212,7 +212,6 @@ const AppController = {
           return;
         }
 
-        // Iniciar grabación
         const hasPermission = await window.AudioManager.initAudio();
         if (!hasPermission) return;
 
@@ -221,10 +220,8 @@ const AppController = {
         
         await window.AudioManager.startRecordingMessage();
         
-        // Mostrar modal de grabación
         window.UI.showRecordingModal(chat.type === "group");
 
-        // Actualizar contador de tiempo
         this.recordingInterval = setInterval(() => {
           const elapsed = Math.floor((Date.now() - this.recordingStartTime) / 1000);
           window.UI.updateRecordingModalTime(elapsed);
@@ -232,7 +229,6 @@ const AppController = {
       });
     }
 
-    // Botón para detener y enviar grabación
     const stopRecordingBtn = document.getElementById("stop-recording-btn");
     if (stopRecordingBtn) {
       stopRecordingBtn.addEventListener("click", async () => {
@@ -240,7 +236,6 @@ const AppController = {
       });
     }
 
-    // Botón para cancelar grabación
     const cancelRecordingBtn = document.getElementById("cancel-recording-btn");
     if (cancelRecordingBtn) {
       cancelRecordingBtn.addEventListener("click", () => {
@@ -248,7 +243,6 @@ const AppController = {
       });
     }
 
-    // ============ Botones de llamada ============
     if (window.UI.callBtn) {
       window.UI.callBtn.addEventListener("click", () => this.handleInitiateCall());
     }
@@ -290,13 +284,40 @@ const AppController = {
       let success = false;
 
       if (chat.type === "user") {
-        // Mensaje de audio individual
-        success = await window.IceDelegate.sendAudioMessage(chat.id, audioData.pcm16);
-        console.log("✅ Mensaje de audio individual enviado");
+        const user = window.UI.allUsers.find(u => u.id === chat.id);
+        if (!user) {
+          alert("Usuario no encontrado");
+          return;
+        }
+        
+        success = await window.IceDelegate.sendAudioMessage(user.username, audioData.pcm16);
+        console.log("✅ Mensaje de audio individual enviado a:", user.username);
+        
+        window.UI.appendAudioMessage({
+          senderId: window.API.getCurrentUser().id,
+          timestamp: new Date().toISOString(),
+          duration: audioData.duration,
+          type: 'audio'
+        }, window.API.getCurrentUser().id);
+        
       } else if (chat.type === "group") {
-        // Mensaje de audio grupal
-        success = await window.IceDelegate.sendAudioMessageGroup(chat.id, audioData.pcm16);
-        console.log("✅ Mensaje de audio grupal enviado");
+        const group = window.UI.currentGroup;
+        if (!group) {
+          alert("Grupo no encontrado");
+          return;
+        }
+        
+        const iceGroupId = `group_${group.id}`;
+        
+        success = await window.IceDelegate.sendAudioMessageGroup(iceGroupId, audioData.pcm16);
+        console.log("✅ Mensaje de audio grupal enviado a:", iceGroupId);
+        
+        window.UI.appendAudioMessage({
+          senderId: window.API.getCurrentUser().id,
+          timestamp: new Date().toISOString(),
+          duration: audioData.duration,
+          type: 'audio'
+        }, window.API.getCurrentUser().id);
       }
 
       if (!success) {
@@ -330,35 +351,56 @@ const AppController = {
 
     try {
       if (chat.type === "user") {
-        // Llamada individual
         const user = window.UI.allUsers.find((u) => u.id === chat.id);
         if (!user) {
           alert("Usuario no encontrado");
           return;
         }
 
-        const call = await window.AudioManager.initiateCall(user.username, user.username, false);
+        const success = await window.IceDelegate.startCall(user.username);
         
-        if (call) {
+        if (success) {
+          window.AudioManager.currentCall = {
+            id: `call_${Date.now()}`,
+            recipientId: user.username,
+            recipientName: user.username,
+            startTime: Date.now(),
+            isGroup: false
+          };
+          
           window.UI.showActiveCallModal(user.username, false);
           console.log("✅ Llamada individual iniciada con:", user.username);
         } else {
           alert("No se pudo iniciar la llamada");
         }
       } else if (chat.type === "group") {
-        // Llamada grupal
         const group = window.UI.currentGroup;
         if (!group) {
           alert("Grupo no encontrado");
           return;
         }
 
-        const members = group.memberIds || group.members || [];
-        const call = await window.AudioManager.initiateGroupCall(chat.id, members);
+        const memberUsernames = (group.memberIds || group.members || [])
+          .map(memberId => {
+            const user = window.UI.allUsers.find(u => u.id === memberId);
+            return user ? user.username : null;
+          })
+          .filter(u => u !== null);
+
+        const groupId = await window.IceDelegate.createGroupCall(memberUsernames);
         
-        if (call) {
-          window.UI.showActiveCallModal(group.name || "Grupo", true, members);
-          console.log("✅ Llamada grupal iniciada:", chat.id);
+        if (groupId) {
+          window.AudioManager.currentCall = {
+            id: `group_call_${Date.now()}`,
+            groupId: groupId,
+            members: memberUsernames,
+            startTime: Date.now(),
+            isGroup: true
+          };
+          
+          await window.AudioManager.startLiveRecording();
+          window.UI.showActiveCallModal(group.name || "Grupo", true, memberUsernames);
+          console.log("✅ Llamada grupal iniciada:", groupId);
         } else {
           alert("No se pudo iniciar la llamada grupal");
         }
@@ -375,10 +417,8 @@ const AppController = {
     if (!call) return;
 
     if (call.isGroup) {
-      // Rechazar llamada grupal
       await window.AudioManager.rejectGroupCall(call.groupId);
     } else {
-      // Rechazar llamada individual
       await window.AudioManager.rejectCall(call.callerId);
     }
     
@@ -398,7 +438,6 @@ const AppController = {
       let success = false;
 
       if (call.isGroup) {
-        // Responder llamada grupal
         success = await window.AudioManager.answerGroupCall(call.groupId);
         
         if (success) {
@@ -408,7 +447,6 @@ const AppController = {
           console.log("✅ Llamada grupal respondida");
         }
       } else {
-        // Responder llamada individual
         success = await window.AudioManager.answerCall(call.callerId);
         
         if (success) {
