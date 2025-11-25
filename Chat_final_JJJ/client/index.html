@@ -251,6 +251,51 @@
         </div>
     </div>
 </div>
+<!-- Agregar este HTML al final del body, antes de cerrar </body> -->
+
+<!-- Modal de Grabación de Audio -->
+<div id="recording-modal" class="modal">
+  <div class="modal-content recording-modal-content">
+    <div class="recording-modal-header">
+      <div class="recording-indicator-large">
+        <div class="recording-dot-large"></div>
+        <span id="recording-modal-time">0:00</span>
+      </div>
+    </div>
+    
+    <div class="recording-modal-body">
+      <div class="recording-icon">
+        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      </div>
+      <p class="recording-text">Grabando mensaje de audio...</p>
+      <p class="recording-hint" id="recording-chat-type">Chat individual</p>
+    </div>
+    
+    <div class="recording-modal-footer">
+      <button id="cancel-recording-btn" class="btn-cancel-recording">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        Cancelar
+      </button>
+      <button id="stop-recording-btn" class="btn-stop-recording">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M9 9l6 3-6 3V9z"></path>
+        </svg>
+        Enviar
+      </button>
+    </div>
+  </div>
+</div>
+
+
 
 <!-- Scripts -->
  

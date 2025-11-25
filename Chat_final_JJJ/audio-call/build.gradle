@@ -1,0 +1,29 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.zeroc.gradle.ice-builder.slice' version '1.5.0'
+}
+
+application {
+    mainClass = 'server.AudioServer'
+}
+
+slice {
+    java {
+        files = [file("../Player.ice")]
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.zeroc:ice:3.7.9'
+}
+
+tasks.register("runAudioServer", JavaExec) {
+    group = "application"
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'server.AudioServer'
+}

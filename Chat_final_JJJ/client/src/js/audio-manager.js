@@ -1,29 +1,29 @@
-// ===================== audio-manager.js (Actualizado) =====================
+// ===================== audio-manager.js (MEJORADO) =====================
 class AudioManager {
   constructor() {
-    // Audio context
     this.audioContext = null;
     this.mediaStream = null;
-    this.processor = null;
     
-    // Buffers
-    this.sendBuffer = [];
+    // Para llamadas en vivo (individual y grupal)
+    this.liveProcessor = null;
+    this.liveSendBuffer = [];
+    
+    // Para mensajes de audio (grabar y enviar)
+    this.messageStream = null;
+    this.messageProcessor = null;
+    this.messageBuffer = [];
+    
+    // Reproducción
     this.bufferQueue = [];
-    
-    // Estado
-    this.isRecording = false;
     this.isPlaying = false;
+    
+    // Estado de llamada
     this.currentCall = null;
     
     // Configuración
     this.SAMPLE_RATE = 44100;
     this.BUFFER_SIZE = 2048;
-    this.SEND_THRESHOLD = 8; // Enviar cada 8 chunks
-    
-    // Para mensajes de audio
-    this.audioMsgStream = null;
-    this.audioMsgProcessor = null;
-    this.audioMsgBuffer = [];
+    this.SEND_THRESHOLD = 8;
   }
 
   async initAudio() {
@@ -54,7 +54,111 @@ class AudioManager {
     }
   }
 
-  // ================== Grabación en vivo (llamadas) ==================
+  // ==================== MENSAJES DE AUDIO ====================
+  async startRecordingMessage() {
+    if (!this.audioContext) {
+      const hasPermission = await this.initAudio();
+      if (!hasPermission) return false;
+    }
+
+    try {
+      await this.audioContext.resume();
+
+      // Obtener stream separado para mensajes
+      this.messageStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: this.SAMPLE_RATE
+        }
+      });
+
+      const audioInput = this.audioContext.createMediaStreamSource(this.messageStream);
+      
+      this.messageProcessor = this.audioContext.createScriptProcessor(
+        this.BUFFER_SIZE,
+        1,
+        1
+      );
+
+      audioInput.connect(this.messageProcessor);
+      this.messageProcessor.connect(this.audioContext.destination);
+
+      this.messageBuffer = [];
+
+      this.messageProcessor.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        const boosted = this.applySoftCompression(input);
+        const pcm16 = this.floatToPCM16(boosted);
+        this.messageBuffer.push(pcm16);
+      };
+
+      console.log("[AudioManager] Grabación de mensaje iniciada");
+      return true;
+    } catch (error) {
+      console.error("[AudioManager] Error al iniciar grabación de mensaje:", error);
+      return false;
+    }
+  }
+
+  async stopRecordingMessage() {
+    try {
+      if (this.messageProcessor) {
+        this.messageProcessor.disconnect();
+        this.messageProcessor.onaudioprocess = null;
+        this.messageProcessor = null;
+      }
+
+      if (this.messageStream) {
+        this.messageStream.getTracks().forEach(t => t.stop());
+        this.messageStream = null;
+      }
+
+      const merged = this.mergePCM(this.messageBuffer);
+      const uint8 = new Uint8Array(merged.buffer);
+      
+      const duration = (this.messageBuffer.length * this.BUFFER_SIZE) / this.SAMPLE_RATE;
+      
+      this.messageBuffer = [];
+
+      console.log("[AudioManager] Grabación de mensaje detenida");
+      
+      return {
+        pcm16: uint8,
+        duration: Math.round(duration),
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error("[AudioManager] Error al detener grabación de mensaje:", error);
+      return null;
+    }
+  }
+
+  cancelRecordingMessage() {
+    try {
+      if (this.messageProcessor) {
+        this.messageProcessor.disconnect();
+        this.messageProcessor.onaudioprocess = null;
+        this.messageProcessor = null;
+      }
+
+      if (this.messageStream) {
+        this.messageStream.getTracks().forEach(t => t.stop());
+        this.messageStream = null;
+      }
+
+      this.messageBuffer = [];
+      
+      console.log("[AudioManager] Grabación de mensaje cancelada");
+      return true;
+    } catch (error) {
+      console.error("[AudioManager] Error al cancelar grabación:", error);
+      return false;
+    }
+  }
+
+  // ==================== LLAMADAS EN VIVO ====================
   async startLiveRecording() {
     if (!this.mediaStream || !this.audioContext) {
       console.error("[AudioManager] No hay stream de audio disponible");
@@ -69,40 +173,45 @@ class AudioManager {
       const gainNode = this.audioContext.createGain();
       gainNode.gain.value = 0.5;
 
-      this.processor = this.audioContext.createScriptProcessor(
+      this.liveProcessor = this.audioContext.createScriptProcessor(
         this.BUFFER_SIZE, 
         1, 
         1
       );
 
       audioInput.connect(gainNode);
-      gainNode.connect(this.processor);
-      this.processor.connect(this.audioContext.destination);
+      gainNode.connect(this.liveProcessor);
+      this.liveProcessor.connect(this.audioContext.destination);
 
-      this.sendBuffer = [];
+      this.liveSendBuffer = [];
 
-      this.processor.onaudioprocess = (e) => {
+      this.liveProcessor.onaudioprocess = (e) => {
         if (!this.currentCall || !window.IceDelegate) return;
 
         const input = e.inputBuffer.getChannelData(0);
         const boosted = this.applySoftCompression(input);
         const pcm16 = this.floatToPCM16(boosted);
-        this.sendBuffer.push(pcm16);
+        this.liveSendBuffer.push(pcm16);
 
-        if (this.sendBuffer.length >= this.SEND_THRESHOLD) {
-          const merged = this.mergePCM(this.sendBuffer);
-          this.sendBuffer = [];
+        if (this.liveSendBuffer.length >= this.SEND_THRESHOLD) {
+          const merged = this.mergePCM(this.liveSendBuffer);
+          this.liveSendBuffer = [];
           
-          // Enviar audio por ICE
-          window.IceDelegate.sendAudio(new Uint8Array(merged.buffer));
+          const bytes = new Uint8Array(merged.buffer);
+          
+          // Enviar según tipo de llamada
+          if (this.currentCall.isGroup) {
+            window.IceDelegate.sendAudioGroup(this.currentCall.groupId, bytes);
+          } else {
+            window.IceDelegate.sendAudio(bytes);
+          }
         }
       };
 
-      this.isRecording = true;
       console.log("[AudioManager] Grabación en vivo iniciada");
       return true;
     } catch (error) {
-      console.error("[AudioManager] Error al iniciar grabación:", error);
+      console.error("[AudioManager] Error al iniciar grabación en vivo:", error);
       return false;
     }
   }
@@ -110,101 +219,35 @@ class AudioManager {
   stopLiveRecording() {
     try {
       // Enviar buffer restante
-      if (this.sendBuffer.length > 0 && this.currentCall && window.IceDelegate) {
-        const merged = this.mergePCM(this.sendBuffer);
-        window.IceDelegate.sendAudio(new Uint8Array(merged.buffer));
-        this.sendBuffer = [];
+      if (this.liveSendBuffer.length > 0 && this.currentCall && window.IceDelegate) {
+        const merged = this.mergePCM(this.liveSendBuffer);
+        const bytes = new Uint8Array(merged.buffer);
+        
+        if (this.currentCall.isGroup) {
+          window.IceDelegate.sendAudioGroup(this.currentCall.groupId, bytes);
+        } else {
+          window.IceDelegate.sendAudio(bytes);
+        }
+        
+        this.liveSendBuffer = [];
       }
 
-      if (this.processor) {
-        this.processor.disconnect();
-        this.processor.onaudioprocess = null;
-        this.processor = null;
+      if (this.liveProcessor) {
+        this.liveProcessor.disconnect();
+        this.liveProcessor.onaudioprocess = null;
+        this.liveProcessor = null;
       }
 
-      if (this.mediaStream) {
-        this.mediaStream.getTracks().forEach(t => t.stop());
-        this.mediaStream = null;
-      }
-
-      this.isRecording = false;
       console.log("[AudioManager] Grabación en vivo detenida");
       return true;
     } catch (error) {
-      console.error("[AudioManager] Error al detener grabación:", error);
+      console.error("[AudioManager] Error al detener grabación en vivo:", error);
       return false;
     }
   }
 
-  // ================== Grabación de mensajes de audio ==================
-  async startRecording() {
-    if (!this.audioContext) {
-      const hasPermission = await this.initAudio();
-      if (!hasPermission) return false;
-    }
-
-    try {
-      await this.audioContext.resume();
-
-      this.audioMsgStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const audioInput = this.audioContext.createMediaStreamSource(this.audioMsgStream);
-
-      this.audioMsgProcessor = this.audioContext.createScriptProcessor(2048, 1, 1);
-      audioInput.connect(this.audioMsgProcessor);
-      this.audioMsgProcessor.connect(this.audioContext.destination);
-
-      this.audioMsgBuffer = [];
-
-      this.audioMsgProcessor.onaudioprocess = (e) => {
-        const input = e.inputBuffer.getChannelData(0);
-        const pcm16 = this.floatToPCM16(input);
-        this.audioMsgBuffer.push(pcm16);
-      };
-
-      this.isRecording = true;
-      console.log("[AudioManager] Grabación de mensaje iniciada");
-      return true;
-    } catch (error) {
-      console.error("[AudioManager] Error al iniciar grabación de mensaje:", error);
-      return false;
-    }
-  }
-
-  stopRecording() {
-    try {
-      if (this.audioMsgProcessor) {
-        this.audioMsgProcessor.disconnect();
-        this.audioMsgProcessor.onaudioprocess = null;
-        this.audioMsgProcessor = null;
-      }
-
-      if (this.audioMsgStream) {
-        this.audioMsgStream.getTracks().forEach(t => t.stop());
-        this.audioMsgStream = null;
-      }
-
-      this.isRecording = false;
-      console.log("[AudioManager] Grabación de mensaje detenida");
-      return true;
-    } catch (error) {
-      console.error("[AudioManager] Error al detener grabación de mensaje:", error);
-      return false;
-    }
-  }
-
-  async handleRecordingStop() {
-    const merged = this.mergePCM(this.audioMsgBuffer);
-    const uint8 = new Uint8Array(merged.buffer);
-    this.audioMsgBuffer = [];
-
-    return {
-      pcm16: uint8,
-      timestamp: new Date().toISOString()
-    };
-  }
-
-  // ================== Llamadas ==================
-  async initiateCall(recipientId, recipientName) {
+  // ==================== LLAMADAS INDIVIDUALES ====================
+  async initiateCall(recipientId, recipientName, isGroup = false) {
     try {
       const hasPermission = await this.initAudio();
       if (!hasPermission) return null;
@@ -217,10 +260,10 @@ class AudioManager {
           recipientId,
           recipientName,
           startTime: Date.now(),
-          duration: 0
+          isGroup: false
         };
 
-        console.log("[AudioManager] Llamada iniciada con:", recipientName);
+        console.log("[AudioManager] Llamada individual iniciada con:", recipientName);
         return this.currentCall;
       }
       
@@ -240,7 +283,7 @@ class AudioManager {
       
       if (success) {
         await this.startLiveRecording();
-        console.log("[AudioManager] Llamada respondida");
+        console.log("[AudioManager] Llamada individual respondida");
         return true;
       }
       
@@ -261,7 +304,7 @@ class AudioManager {
         this.currentCall = null;
       }
       
-      console.log("[AudioManager] Llamada rechazada");
+      console.log("[AudioManager] Llamada individual rechazada");
       return true;
     } catch (error) {
       console.error("[AudioManager] Error al rechazar llamada:", error);
@@ -269,20 +312,101 @@ class AudioManager {
     }
   }
 
+  // ==================== LLAMADAS GRUPALES ====================
+  async initiateGroupCall(groupId, members) {
+    try {
+      const hasPermission = await this.initAudio();
+      if (!hasPermission) return null;
+
+      const success = await window.IceDelegate.createGroupCall(members);
+      
+      if (success) {
+        this.currentCall = {
+          id: `group_call_${Date.now()}`,
+          groupId,
+          members,
+          startTime: Date.now(),
+          isGroup: true
+        };
+
+        // Suscribirse al audio del grupo
+        window.IceDelegate.subscribeGroup(groupId, (bytes) => {
+          this.playAudio(bytes);
+        });
+
+        await this.startLiveRecording();
+
+        console.log("[AudioManager] Llamada grupal iniciada:", groupId);
+        return this.currentCall;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("[AudioManager] Error al iniciar llamada grupal:", error);
+      return null;
+    }
+  }
+
+  async answerGroupCall(groupId) {
+    try {
+      const hasPermission = await this.initAudio();
+      if (!hasPermission) return false;
+
+      await window.IceDelegate.joinGroupCall(groupId);
+      
+      // Suscribirse al audio del grupo
+      window.IceDelegate.subscribeGroup(groupId, (bytes) => {
+        this.playAudio(bytes);
+      });
+
+      await this.startLiveRecording();
+      
+      console.log("[AudioManager] Llamada grupal respondida:", groupId);
+      return true;
+    } catch (error) {
+      console.error("[AudioManager] Error al responder llamada grupal:", error);
+      return false;
+    }
+  }
+
+  async rejectGroupCall(groupId) {
+    try {
+      if (window.IceDelegate) {
+        await window.IceDelegate.leaveGroupCall(groupId);
+      }
+      
+      if (this.currentCall) {
+        this.currentCall = null;
+      }
+      
+      console.log("[AudioManager] Llamada grupal rechazada");
+      return true;
+    } catch (error) {
+      console.error("[AudioManager] Error al rechazar llamada grupal:", error);
+      return false;
+    }
+  }
+
+  // ==================== FINALIZAR LLAMADA ====================
   async endCall() {
     if (this.currentCall) {
       const duration = (Date.now() - this.currentCall.startTime) / 1000;
       this.currentCall.duration = duration;
 
-      // Colgar por ICE
       if (window.IceDelegate) {
-        const target = this.currentCall.recipientId || this.currentCall.callerId;
-        if (target) {
-          await window.IceDelegate.colgar(target);
+        if (this.currentCall.isGroup) {
+          // Salir de llamada grupal
+          await window.IceDelegate.leaveGroupCall(this.currentCall.groupId);
+        } else {
+          // Colgar llamada individual
+          const target = this.currentCall.recipientId || this.currentCall.callerId;
+          if (target) {
+            await window.IceDelegate.colgar(target);
+          }
         }
       }
 
-      console.log("[AudioManager] Llamada finalizada. Duración:", duration, "segundos");
+      console.log(`[AudioManager] Llamada ${this.currentCall.isGroup ? 'grupal' : 'individual'} finalizada. Duración:`, duration, "segundos");
       this.currentCall = null;
     }
 
@@ -291,7 +415,7 @@ class AudioManager {
     this.isPlaying = false;
   }
 
-  // ================== Procesamiento de audio ==================
+  // ==================== PROCESAMIENTO DE AUDIO ====================
   applySoftCompression(buffer) {
     const threshold = 0.65;
     const ratio = 4.0;
@@ -341,7 +465,7 @@ class AudioManager {
     return floatBuffer;
   }
 
-  // ================== Reproducción de audio ==================
+  // ==================== REPRODUCCIÓN DE AUDIO ====================
   playAudio(byteArray) {
     if (!byteArray || !this.audioContext) return;
     
@@ -377,7 +501,6 @@ class AudioManager {
 if (typeof window !== "undefined") {
   window.AudioManager = new AudioManager();
   
-  // Conectar con IceDelegate cuando esté disponible
   if (window.IceDelegate) {
     window.IceDelegate.subscribe((bytes) => {
       window.AudioManager.playAudio(bytes);
