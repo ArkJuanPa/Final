@@ -89,6 +89,44 @@ public interface ObserverPrx extends com.zeroc.Ice.ObjectPrx
         return f;
     }
 
+    default void receiveAudioMessageGroup(String groupId, byte[] data)
+    {
+        receiveAudioMessageGroup(groupId, data, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default void receiveAudioMessageGroup(String groupId, byte[] data, java.util.Map<String, String> context)
+    {
+        _iceI_receiveAudioMessageGroupAsync(groupId, data, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> receiveAudioMessageGroupAsync(String groupId, byte[] data)
+    {
+        return _iceI_receiveAudioMessageGroupAsync(groupId, data, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> receiveAudioMessageGroupAsync(String groupId, byte[] data, java.util.Map<String, String> context)
+    {
+        return _iceI_receiveAudioMessageGroupAsync(groupId, data, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_groupId -
+     * @param iceP_data -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<Void> _iceI_receiveAudioMessageGroupAsync(String iceP_groupId, byte[] iceP_data, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<Void> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "receiveAudioMessageGroup", null, sync, null);
+        f.invoke(false, context, null, ostr -> {
+                     ostr.writeString(iceP_groupId);
+                     ostr.writeByteSeq(iceP_data);
+                 }, null);
+        return f;
+    }
+
     default void incomingCall(String fromUser)
     {
         incomingCall(fromUser, com.zeroc.Ice.ObjectPrx.noExplicitContext);

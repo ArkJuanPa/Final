@@ -440,6 +440,46 @@ public interface SubjectPrx extends com.zeroc.Ice.ObjectPrx
         return f;
     }
 
+    default void sendAudioMessageGroup(String fromUser, String groupId, byte[] data)
+    {
+        sendAudioMessageGroup(fromUser, groupId, data, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default void sendAudioMessageGroup(String fromUser, String groupId, byte[] data, java.util.Map<String, String> context)
+    {
+        _iceI_sendAudioMessageGroupAsync(fromUser, groupId, data, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> sendAudioMessageGroupAsync(String fromUser, String groupId, byte[] data)
+    {
+        return _iceI_sendAudioMessageGroupAsync(fromUser, groupId, data, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> sendAudioMessageGroupAsync(String fromUser, String groupId, byte[] data, java.util.Map<String, String> context)
+    {
+        return _iceI_sendAudioMessageGroupAsync(fromUser, groupId, data, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_fromUser -
+     * @param iceP_groupId -
+     * @param iceP_data -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<Void> _iceI_sendAudioMessageGroupAsync(String iceP_fromUser, String iceP_groupId, byte[] iceP_data, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<Void> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "sendAudioMessageGroup", null, sync, null);
+        f.invoke(false, context, null, ostr -> {
+                     ostr.writeString(iceP_fromUser);
+                     ostr.writeString(iceP_groupId);
+                     ostr.writeByteSeq(iceP_data);
+                 }, null);
+        return f;
+    }
+
     default void sendAudioGroup(String groupId, String fromUser, byte[] data)
     {
         sendAudioGroup(groupId, fromUser, data, com.zeroc.Ice.ObjectPrx.noExplicitContext);

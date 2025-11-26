@@ -34,22 +34,13 @@ class AudioManager {
         });
       }
 
+      // No pedir micrófono todavía
       await this.audioContext.resume();
 
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: this.SAMPLE_RATE
-        }
-      });
-      
-      console.log("[AudioManager] Audio inicializado correctamente");
+      console.log("[AudioManager] AudioContext inicializado correctamente");
       return true;
     } catch (error) {
-      console.error("[AudioManager] Error al acceder al micrófono:", error);
-      alert("No se pudo acceder al micrófono. Verifica los permisos.");
+      console.error("[AudioManager] Error al inicializar AudioContext:", error);
       return false;
     }
   }
@@ -159,23 +150,27 @@ class AudioManager {
 
   // ==================== LLAMADAS EN VIVO ====================
   async startLiveRecording() {
-    if (!this.mediaStream || !this.audioContext) {
-      console.error("[AudioManager] No hay stream de audio disponible");
-      const hasPermission = await this.initAudio();
-      if (!hasPermission) return false;
-    }
-
     try {
-      await this.audioContext.resume();
+      if (!this.audioContext) await this.initAudio();
+
+      // Abrir micrófono solo ahora
+      if (!this.mediaStream) {
+        this.mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: this.SAMPLE_RATE
+          }
+        });
+      }
 
       const audioInput = this.audioContext.createMediaStreamSource(this.mediaStream);
       const gainNode = this.audioContext.createGain();
       gainNode.gain.value = 0.5;
 
       this.liveProcessor = this.audioContext.createScriptProcessor(
-        this.BUFFER_SIZE, 
-        1, 
-        1
+        this.BUFFER_SIZE, 1, 1
       );
 
       audioInput.connect(gainNode);
@@ -195,10 +190,9 @@ class AudioManager {
         if (this.liveSendBuffer.length >= this.SEND_THRESHOLD) {
           const merged = this.mergePCM(this.liveSendBuffer);
           this.liveSendBuffer = [];
-          
+
           const bytes = new Uint8Array(merged.buffer);
-          
-          // Enviar según tipo de llamada
+
           if (this.currentCall.isGroup) {
             window.IceDelegate.sendAudioGroup(this.currentCall.groupId, bytes);
           } else {
@@ -215,19 +209,20 @@ class AudioManager {
     }
   }
 
+
   stopLiveRecording() {
     try {
       // Enviar buffer restante
       if (this.liveSendBuffer.length > 0 && this.currentCall && window.IceDelegate) {
         const merged = this.mergePCM(this.liveSendBuffer);
         const bytes = new Uint8Array(merged.buffer);
-        
+
         if (this.currentCall.isGroup) {
           window.IceDelegate.sendAudioGroup(this.currentCall.groupId, bytes);
         } else {
           window.IceDelegate.sendAudio(bytes);
         }
-        
+
         this.liveSendBuffer = [];
       }
 
@@ -237,6 +232,12 @@ class AudioManager {
         this.liveProcessor = null;
       }
 
+      // Cerrar micrófono
+      if (this.mediaStream) {
+        this.mediaStream.getTracks().forEach(t => t.stop());
+        this.mediaStream = null;
+      }
+
       console.log("[AudioManager] Grabación en vivo detenida");
       return true;
     } catch (error) {
@@ -244,6 +245,7 @@ class AudioManager {
       return false;
     }
   }
+
 
   // ==================== LLAMADAS INDIVIDUALES ====================
   async initiateCall(recipientId, recipientName, isGroup = false) {
@@ -384,8 +386,10 @@ class AudioManager {
 
       if (window.IceDelegate) {
         if (this.currentCall.isGroup) {
+          // ✅ LLAMADA GRUPAL - usar leaveGroupCall
           await window.IceDelegate.leaveGroupCall(this.currentCall.groupId);
         } else {
+          // ✅ LLAMADA INDIVIDUAL - usar colgar (método correcto)
           const target = this.currentCall.recipientId || this.currentCall.callerId;
           if (target) {
             await window.IceDelegate.colgar(target);
@@ -452,27 +456,44 @@ class AudioManager {
     return floatBuffer;
   }
 
-  // ==================== REPRODUCCIÓN DE AUDIO ====================
   playAudio(byteArray) {
-    if (!byteArray || !this.audioContext) return;
-    
+    console.log(`🎯 [DEBUG] AUDIOMANAGER.PLAYAUDIO EJECUTADO`);
+    console.log(`🎯 [DEBUG] Bytes recibidos: ${byteArray?.length || 0}`);
+    console.log(`🎯 [DEBUG] AudioContext estado: ${this.audioContext?.state || 'NO INICIALIZADO'}`);
+  
+    if (!byteArray || !this.audioContext) {
+      console.error(`❌ [DEBUG] No hay bytes o AudioContext`);
+      return;
+    }
+
     const floatArray = this.convertPCM16ToFloat32(byteArray);
     this.bufferQueue.push(floatArray);
-    
+
     if (!this.isPlaying) {
-      this.processQueue();
+      // Reanudar AudioContext si estaba suspendido
+      if (this.audioContext.state === "suspended") {
+        this.audioContext.resume().then(() => this.processQueue());
+      } else {
+        this.processQueue();
+      }
     }
   }
 
   processQueue() {
     if (this.bufferQueue.length === 0) {
       this.isPlaying = false;
+
+      // Suspender AudioContext cuando no haya audio
+      if (this.audioContext.state === "running") {
+        this.audioContext.suspend().catch(console.error);
+      }
+
       return;
     }
-    
+
     this.isPlaying = true;
     const data = this.bufferQueue.shift();
-    
+
     const audioBuffer = this.audioContext.createBuffer(1, data.length, this.SAMPLE_RATE);
     audioBuffer.getChannelData(0).set(data);
 
@@ -482,6 +503,7 @@ class AudioManager {
     source.start();
     source.onended = () => this.processQueue();
   }
+
 }
 
 // Instancia global

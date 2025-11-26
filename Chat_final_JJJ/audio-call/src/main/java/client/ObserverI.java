@@ -194,4 +194,15 @@ public class ObserverI implements Observer {
             System.out.println("[CLIENT] Reproduciendo mensaje de audio grupal...");
         }
     }
+
+    @Override
+    public void groupUsersUpdated(String groupId, String[] users, Current current) {
+        System.out.println("[CLIENT] Grupo actualizado: " + groupId);
+
+        System.out.println("Miembros ahora:");
+        for (String u : users) {
+            System.out.println(" - " + u);
+        }
+    }
+
 }

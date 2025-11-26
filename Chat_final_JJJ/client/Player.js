@@ -46,6 +46,7 @@
         "receiveAudio": [, , , , , [["Demo.BytesHelper"]], , , , ],
         "receiveAudioMessage": [, , , , , [["Demo.BytesHelper"]], , , , ],
         "receiveAudioMessageGroup": [, , , , , [[7], ["Demo.BytesHelper"]], , , , ],
+        "groupUsersUpdated": [, , , , , [[7], ["Demo.stringSeqHelper"]], , , , ],
         "incomingCall": [, , , , , [[7]], , , , ],
         "callAccepted": [, , , , , [[7]], , , , ],
         "callRejected": [, , , , , [[7]], , , , ],
@@ -74,6 +75,8 @@
         "sendAudio": [, , , , , [[7], ["Demo.BytesHelper"]], , , , ],
         "sendAudioMessage": [, , , , , [[7], [7], ["Demo.BytesHelper"]], , , , ],
         "getConnectedUsers": [, , , , ["Demo.stringSeqHelper"], , , , , ],
+        "sendAudioMessageGroup": [, , , , , [[7], [7], ["Demo.BytesHelper"]], , , , ],
+        "joinMessagingGroup": [, , , , , [[7], ["Demo.stringSeqHelper"]], , , , ],
         "startCall": [, , , , , [[7], [7]], , , , ],
         "acceptCall": [, , , , , [[7], [7]], , , , ],
         "rejectCall": [, , , , , [[7], [7]], , , , ],
@@ -81,7 +84,6 @@
         "createGroupCall": [, , , , [7], [[7], ["Demo.stringSeqHelper"]], , , , ],
         "joinGroupCall": [, , , , , [[7], [7]], , , , ],
         "leaveGroupCall": [, , , , , [[7], [7]], , , , ],
-        "sendAudioMessageGroup": [, , , , , [[7], [7], ["Demo.BytesHelper"]], , , , ],
         "sendAudioGroup": [, , , , , [[7], [7], ["Demo.BytesHelper"]], , , , ]
     });
     exports.Demo = Demo;

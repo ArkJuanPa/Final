@@ -21,6 +21,8 @@ public interface Observer extends com.zeroc.Ice.Object
 
     void receiveAudioMessage(byte[] data, com.zeroc.Ice.Current current);
 
+    void receiveAudioMessageGroup(String groupId, byte[] data, com.zeroc.Ice.Current current);
+
     void incomingCall(String fromUser, com.zeroc.Ice.Current current);
 
     void callAccepted(String fromUser, com.zeroc.Ice.Current current);
@@ -92,6 +94,26 @@ public interface Observer extends com.zeroc.Ice.Object
         iceP_data = istr.readByteSeq();
         inS.endReadParams();
         obj.receiveAudioMessage(iceP_data, current);
+        return inS.setResult(inS.writeEmptyParams());
+    }
+
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_receiveAudioMessageGroup(Observer obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_groupId;
+        byte[] iceP_data;
+        iceP_groupId = istr.readString();
+        iceP_data = istr.readByteSeq();
+        inS.endReadParams();
+        obj.receiveAudioMessageGroup(iceP_groupId, iceP_data, current);
         return inS.setResult(inS.writeEmptyParams());
     }
 
@@ -242,7 +264,8 @@ public interface Observer extends com.zeroc.Ice.Object
         "incomingCall",
         "incomingGroupCall",
         "receiveAudio",
-        "receiveAudioMessage"
+        "receiveAudioMessage",
+        "receiveAudioMessageGroup"
     };
 
     /** @hidden */
@@ -309,6 +332,10 @@ public interface Observer extends com.zeroc.Ice.Object
             case 12:
             {
                 return _iceD_receiveAudioMessage(this, in, current);
+            }
+            case 13:
+            {
+                return _iceD_receiveAudioMessageGroup(this, in, current);
             }
         }
 

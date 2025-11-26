@@ -13,7 +13,7 @@ public class SubjectImpl implements Subject {
     private final Map<String, String> activeCalls = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> groupMembers = new ConcurrentHashMap<>();
     private final ScheduledExecutorService cleaner = Executors.newSingleThreadScheduledExecutor();
-    private final long STALE_MS = 300_000;
+    private final long STALE_MS = 600_000;
     private final AtomicLong idGen = new AtomicLong(System.currentTimeMillis());
 
     public SubjectImpl() {
@@ -323,7 +323,8 @@ public class SubjectImpl implements Subject {
             ObserverPrx prx = observers.get(member);
             if (prx != null) {
                 try {
-                    prx.receiveAudioMessageGroupAsync(groupId, data);
+                    // ✅ CORREGIDO: Quitar "Async"
+                    prx.receiveAudioMessageGroup(groupId, data);
                 } catch (Exception ex) {
                     System.err.println("[SERVER] Error enviando mensaje de audio grupal a " + member);
                 }
@@ -406,4 +407,43 @@ public class SubjectImpl implements Subject {
     public void shutdown() {
         cleaner.shutdownNow();
     }
+
+  @Override
+    public void joinMessagingGroup(String groupId, String[] users, Current current) {
+
+        if (groupId == null || users == null) {
+            throw new IllegalArgumentException("groupId/users no pueden ser null");
+        }
+
+        // Crear el grupo si no existe
+        groupMembers.putIfAbsent(groupId, ConcurrentHashMap.newKeySet());
+        Set<String> members = groupMembers.get(groupId);
+
+        // Agregar usuarios al grupo
+        for (String u : users) {
+            if (u != null && !u.trim().isEmpty()) {
+                members.add(u);
+            }
+        }
+
+        System.out.println("[SERVER] 💬 Usuarios añadidos al grupo " 
+                            + groupId + ": " + members.size() + " miembros");
+
+        // Convertir miembros a arreglo para enviarlos
+        String[] arr = members.toArray(new String[0]);
+
+        // Notificar SOLO a los observadores que están en ese grupo
+        for (String member : arr) {
+            ObserverPrx prx = observers.get(member);
+            if (prx != null) {
+                try {
+                    prx.groupUsersUpdatedAsync(groupId, arr);
+                } catch (Exception ex) {
+                    System.err.println("[SERVER] Error notificando groupUsersUpdated a " + member);
+                }
+            }
+        }
+    }
+
+
 }

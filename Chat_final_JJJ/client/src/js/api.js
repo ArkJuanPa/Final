@@ -1,5 +1,3 @@
-
-
 const API_BASE_URL = "http://localhost:3001/api"
 
 let sessionId = null
@@ -7,7 +5,7 @@ let currentUser = null
 let pollingInterval = null
 
 // Configurar axios con interceptores
-const axiosInstance = axios.create({
+const axiosInstance = window.axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
@@ -80,7 +78,7 @@ const API = {
     this.stopPolling()
 
     pollingInterval = setInterval(async () => {
-      const chat = UI.getCurrentChat()
+      const chat = window.UI.getCurrentChat()
 
       if (chat.type && chat.id) {
         try {
@@ -92,10 +90,9 @@ const API = {
           }
 
           if (result.success) {
-            const currentMessages = UI.messagesContainer.children.length
-            if (result.messages.length !== currentMessages) {
-              UI.renderMessages(result.messages, currentUser.id)
-            }
+            const currentUserId = result.currentUserId || this.getCurrentUser()?.id
+            // result.messages ya contiene mensajes Y llamadas unificados
+            window.UI.renderMessages(result.messages, currentUserId)
           }
         } catch (error) {
           console.error("Error en polling:", error)
@@ -148,8 +145,8 @@ const API = {
           }
         })
 
-        UI.allUsers = processedUsers
-        console.log("UI.allUsers actualizado con", UI.allUsers.length, "usuarios")
+        window.UI.allUsers = processedUsers
+        console.log("UI.allUsers actualizado con", window.UI.allUsers.length, "usuarios")
 
         return processedUsers
       } else {
@@ -172,12 +169,41 @@ const API = {
     return result
   },
 
-  async getHistory(userId) {
-    console.log("API.getHistory llamado para userId:", userId)
+async getHistory(userId) {
+  console.log("API.getHistory llamado para userId:", userId)
+
+  try {
     const result = await axiosInstance.get(`/messages/history/${userId}`)
-    console.log("API.getHistory resultado:", result)
-    return result
-  },
+    console.log("API.getHistory resultado RAW:", result)
+
+    if (!result.success) {
+      throw new Error(result.error || "No se pudo obtener el historial")
+    }
+
+    const currentUser = this.getCurrentUser()
+    
+    // CORRECCIÓN CRÍTICA: El proxy puede devolver result.messages como objeto
+    let messagesArray = []
+    
+    if (Array.isArray(result.messages)) {
+      messagesArray = result.messages
+    } else if (result.messages && typeof result.messages === 'object') {
+      // Si es un objeto, convertir sus valores a array
+      messagesArray = Object.values(result.messages)
+    }
+
+    console.log("API.getHistory messagesArray procesado:", messagesArray)
+
+    return {
+      success: true,
+      messages: messagesArray,
+      currentUserId: currentUser?.id || null
+    }
+  } catch (error) {
+    console.error("Error en getHistory:", error)
+    return { success: false, error: error.message, messages: [] }
+  }
+},
 
   async createGroup(groupName) {
     return await axiosInstance.post("/groups/create", {
@@ -200,7 +226,38 @@ const API = {
   },
 
   async getGroupMessages(groupId) {
-    return await axiosInstance.get(`/messages/group/${groupId}`)
+    console.log("API.getGroupMessages llamado para groupId:", groupId)
+    
+    try {
+      const result = await axiosInstance.get(`/messages/group/${groupId}`)
+      console.log("API.getGroupMessages resultado RAW:", result)
+
+      if (!result.success) {
+        throw new Error(result.error || "No se pudo obtener mensajes del grupo")
+      }
+
+      const currentUser = this.getCurrentUser()
+      
+      // CORRECCIÓN: Convertir objeto a array si es necesario
+      let messagesArray = []
+      
+      if (Array.isArray(result.messages)) {
+        messagesArray = result.messages
+      } else if (result.messages && typeof result.messages === 'object') {
+        messagesArray = Object.values(result.messages)
+      }
+
+      console.log("API.getGroupMessages messagesArray procesado:", messagesArray)
+
+      return {
+        success: true,
+        messages: messagesArray,
+        currentUserId: currentUser?.id || null
+      }
+    } catch (error) {
+      console.error("Error en getGroupMessages:", error)
+      return { success: false, error: error.message, messages: [] }
+    }
   },
 
   async addMemberToGroup(groupId, userId) {
@@ -243,18 +300,18 @@ const API = {
   async showAddMembersModal(group) {
     try {
       console.log("showAddMembersModal llamado para grupo:", group)
-      console.log("Estado inicial de UI.allUsers:", UI.allUsers?.length || 0)
+      console.log("Estado inicial de UI.allUsers:", window.UI.allUsers?.length || 0)
 
       console.log("Cargando usuarios...")
       const users = await this.loadUsers()
 
       console.log("Usuarios cargados exitosamente:", users?.length || 0)
 
-      if (!UI.allUsers || UI.allUsers.length === 0) {
+      if (!window.UI.allUsers || window.UI.allUsers.length === 0) {
         throw new Error("No se pudieron cargar los usuarios disponibles")
       }
 
-      UI.showAddMembersModal(group)
+      window.UI.showAddMembersModal(group)
     } catch (error) {
       console.error("Error en showAddMembersModal:", error)
       alert("Error cargando usuarios disponibles: " + error.message)
@@ -265,6 +322,52 @@ const API = {
     return await axiosInstance.get("/health", { skipAuth: true })
   },
 
+    async saveAudioMessage(receiverId, duration) {
+    console.log("💾 Guardando mensaje de audio en backend:", { receiverId, duration })
+    try {
+      const result = await axiosInstance.post("/messages/send-audio", {
+        sessionId,
+        receiverId: parseInt(receiverId),
+        duration: parseInt(duration)
+      })
+      console.log("✅ Audio guardado:", result)
+      return result
+    } catch (error) {
+      console.error("❌ Error guardando audio:", error)
+      throw error
+    }
+  },
+
+  async saveGroupAudioMessage(groupId, duration) {
+    console.log("💾 Guardando mensaje de audio grupal en backend:", { groupId, duration })
+    try {
+      const result = await axiosInstance.post("/messages/send-group-audio", {
+        sessionId,
+        groupId: parseInt(groupId),
+        duration: parseInt(duration)
+      })
+      console.log("✅ Audio grupal guardado:", result)
+      return result
+    } catch (error) {
+      console.error("❌ Error guardando audio grupal:", error)
+      throw error
+    }
+  },
+
+  async endCall() {
+    console.log("📴 Notificando fin de llamada al backend")
+    try {
+      const result = await axiosInstance.post("/calls/end", {
+        sessionId
+      })
+      console.log("✅ Llamada registrada en backend:", result)
+      return result
+    } catch (error) {
+      console.error("❌ Error registrando llamada:", error)
+      throw error
+    }
+  },
+  
   getSessionId() {
     return sessionId
   },

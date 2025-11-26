@@ -6,19 +6,21 @@
 
 /* Modal de Grabación */
 .recording-modal-content {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+  color: var(--text-primary);
   max-width: 400px;
   padding: 0;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
 }
 
 .recording-modal-header {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(37, 211, 102, 0.1);
   padding: 20px;
   text-align: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba(37, 211, 102, 0.2);
 }
 
 .recording-indicator-large {
@@ -26,15 +28,15 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: bold;
   font-variant-numeric: tabular-nums;
 }
 
 .recording-dot-large {
-  width: 16px;
-  height: 16px;
-  background-color: #ff4444;
+  width: 14px;
+  height: 14px;
+  background-color: var(--error-color);
   border-radius: 50%;
   animation: pulse 1.5s ease-in-out infinite;
 }

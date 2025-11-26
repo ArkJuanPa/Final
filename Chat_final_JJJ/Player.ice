@@ -6,7 +6,10 @@ module Demo {
         // Audio (llamadas y mensajes)
         void receiveAudio(Bytes data);
         void receiveAudioMessage(Bytes data);
+
+        // Audio grupal
         void receiveAudioMessageGroup(string groupId, Bytes data);
+        void groupUsersUpdated(string groupId, stringSeq users);
 
 
 
@@ -30,6 +33,9 @@ module Demo {
         void sendAudioMessage(string fromUser, string toUser, Bytes data); // mensaje de voz individual
 
         stringSeq getConnectedUsers();
+        // Audio grupal
+        void sendAudioMessageGroup(string fromUser, string groupId, Bytes data);
+        void joinMessagingGroup(string groupId, stringSeq users);
 
         // Llamadas individuales
         void startCall(string fromUser, string toUser);
@@ -41,7 +47,8 @@ module Demo {
         string createGroupCall(string fromUser, stringSeq users);
         void joinGroupCall(string groupId, string user);
         void leaveGroupCall(string groupId, string user);
-        void sendAudioMessageGroup(string fromUser, string groupId, Bytes data);
+        
+        
         void sendAudioGroup(string groupId, string fromUser, Bytes data); // audio de llamada grupal
     };
 }
